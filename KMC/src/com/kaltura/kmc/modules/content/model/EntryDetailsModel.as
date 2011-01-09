@@ -1,0 +1,69 @@
+package com.kaltura.kmc.modules.content.model
+{
+	import com.kaltura.kmc.modules.content.vo.EntryMetadataDataVO;
+	import com.kaltura.vo.KalturaBaseEntry;
+	
+	import mx.collections.ArrayCollection;
+
+	[Bindable]
+	/**
+	 * data concerning entries details 
+	 * @author Atar
+	 */	
+	public class EntryDetailsModel {
+		/**
+		 * list of Object {label}	<br>
+		 * used for entry details window
+		 * */
+		public var categoriesFullNameList:ArrayCollection = new ArrayCollection();
+		
+		public var flavorParamsAndAssetsByEntryId:ArrayCollection = new ArrayCollection();
+		
+		
+		/**
+		 * total number of entries 
+		 */		
+		public var totalEntriesCount:int = 0;
+		
+		/**
+		 * Current Viewed Entry
+		 */
+		public var selectedEntry:KalturaBaseEntry;
+		
+		/**
+		 * will hold the metadata data values
+		 * */
+		public var metadataInfo:EntryMetadataDataVO;
+		
+		/**
+		 * uiconf used with metadata
+		 * */
+		public var metadataDefaultUiconf:int;
+		
+		
+		/**
+		 * TODO: change later to arrive from permissions!!!!!!!!!
+		 * */
+		public var enableDistribution:Boolean = false;
+		
+		/**
+		 * indicates if we should send the listDistributionProfiles
+		 * */
+		public var listDistributionProfilesRequired:Boolean = true;
+		
+		/**
+		 * contains all info regarding distribution profiles: distribution profiles and thumbnails 
+		 */		
+		public var distributionProfileInfo:DistributionProfileInfo = new DistributionProfileInfo();
+		
+		/**
+		 * indicates data is being retrieved from server at the moment 
+		 */		
+		public var loadingFlag:Boolean = false;
+		
+		/**
+		 * inidicates if generate new thumbnail asset request returned valid result 
+		 */		
+		public var thumbnailSaved:Boolean = false;
+	}
+}
