@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!---
+	 entry drill-down screen.
+-->
+<containers:HelpTitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:containers="com.kaltura.containers.*" 
+							title="{resourceManager.getString('cms','editEntry') } - { _undoToEntry.name }" 
+							height="545" width="930" layout="horizontal" horizontalScrollPolicy="off" paddingTop="18"
+							showCloseButton="true" close="{onClose()}" help="{onHelp()}"
+							xmlns:view="com.kaltura.kmc.modules.content.view.*" xmlns:controls="com.kaltura.controls.*"
+							xmlns:navigation="com.kaltura.kmc.modules.content.view.navigation.*"
+							xmlns:ed="com.kaltura.kmc.modules.content.view.window.entrydetails.*"
+							xmlns:adobe="http://www.adobe.com/2006/fc"
+							enabled="{!entryDetailsModel.loadingFlag}">
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.analytics.GoogleAnalyticsConsts;
+			import com.kaltura.analytics.GoogleAnalyticsTracker;
+			import com.kaltura.analytics.KAnalyticsTracker;
+			import com.kaltura.analytics.KAnalyticsTrackerConsts;
+			import com.kaltura.kmc.business.JSGate;
+			import com.kaltura.kmc.business.PermissionManager;
+			import com.kaltura.kmc.events.KmcHelpEvent;
+			import com.kaltura.kmc.modules.content.business.Cloner;
+			import com.kaltura.kmc.modules.content.events.EntriesEvent;
+			import com.kaltura.kmc.modules.content.events.EntryEvent;
+			import com.kaltura.kmc.modules.content.events.WindowEvent;
+			import com.kaltura.kmc.modules.content.model.Context;
+			import com.kaltura.kmc.modules.content.model.EntryDetailsModel;
+			import com.kaltura.kmc.modules.content.model.FilterModel;
+			import com.kaltura.kmc.modules.content.utils.MetadataDataParser;
+			import com.kaltura.kmc.modules.content.vo.EntryDetailsValidationError;
+			import com.kaltura.kmc.modules.content.vo.EntryMetadataDataVO;
+			import com.kaltura.kmc.modules.content.vo.FlavorAssetWithParamsVO;
+			import com.kaltura.types.KalturaEntryStatus;
+			import com.kaltura.types.KalturaMediaType;
+			import com.kaltura.types.KalturaStatsKmcEventType;
+			import com.kaltura.utils.ObjectUtil;
+			import com.kaltura.utils.SoManager;
+			import com.kaltura.vo.KMCMetadataProfileVO;
+			import com.kaltura.vo.KalturaBaseEntry;
+			import com.kaltura.vo.KalturaFlavorAsset;
+			import com.kaltura.vo.KalturaLiveStreamAdminEntry;
+			import com.kaltura.vo.KalturaMediaEntry;
+			import com.kaltura.vo.KalturaMixEntry;
+			import com.kaltura.vo.KalturaPlaylist;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.managers.PopUpManager;
+			import mx.resources.ResourceManager;
+
+
+
+
+
+			[Bindable]
+			/**
+			 * copy of the selected entry.
+			 * we work on this instead of the actual selected entry
+			 * (model.selectedEntry) so we can easily revert if needed.
+			 * */
+			private var _undoToEntry:KalturaBaseEntry;
+
+			[Bindable]
+			/**
+			 * indicates the current entry is a livestream entry
+			 * */
+			private var _isLiveStream:Boolean;
+
+
+
+			/**
+			 * if somthing that we can't track changes happen
+			 * (like mix created) we need to refresh entires table after save.
+			 * */
+			private var _untrackableChangeFlag:Boolean = false;
+
+
+			[Bindable]
+			/**
+			 * entry details window data
+			 * */
+			public var entryDetailsModel:EntryDetailsModel;
+
+			[Bindable]
+			/**
+			 * filter data
+			 * */
+			public var filterModel:FilterModel;
+
+			[Bindable]
+			/**
+			 * application context
+			 * */
+			public var context:Context;
+
+			/**
+			 * this js function will be triggered to show preview
+			 * */
+			public var openPlayerFunc:String;
+			
+			
+			[Bindable]
+			/**
+			 * show embed option on drilldown
+			 * */
+			public var showEmbedCode:Boolean = true;
+
+			private function onHelp():void {
+				dispatchEvent(new KmcHelpEvent(KmcHelpEvent.HELP, 'section2'));
+			}
+
+
+			/**
+			 * reorder tabs and show only relevant tabs for normal (not mix) entries
+			 * */
+			private function showNormalSetup():void {
+				viewStack.removeChild(liveStream);
+				if (!filterModel.enableCustomData) {
+					viewStack.removeChild(customData);
+				}
+				// for mix/content tab, show "mixesTab" header
+				contentTab.label = ResourceManager.getInstance().getString('cms', 'mixesTab');
+				
+			}
+			
+			private function removeThumbnailsTab():void {
+				viewStack.removeChild(entryThumbnails);
+			}
+
+
+			/**
+			 * reorder tabs and show only relevant tabs for mix entries
+			 * */
+			private function showMixSetup():void {
+				viewStack.removeChild(entryAsstes);
+				viewStack.removeChild(liveStream);
+				
+				if (!filterModel.enableCustomData) {
+					viewStack.removeChild(customData);
+				}
+				// for mix/content tab, show "mixesTab" header
+				contentTab.label = ResourceManager.getInstance().getString('cms', 'content');
+			}
+
+
+			/**
+			 * reorder tabs and show only relevant tabs for live Entries
+			 * */
+			private function showLiveStreamSetup():void {
+				viewStack.removeChild(entryAsstes);
+				viewStack.removeChild(contentTab);
+
+				if (!filterModel.enableCustomData) {
+					viewStack.removeChild(customData);
+				}
+			}
+
+
+			/**
+			 * save a working copy of the selected entry
+			 * @return a copy entry
+			 * */
+			private function createWorkingCopy(entry:KalturaBaseEntry):KalturaBaseEntry {
+				var copy:KalturaBaseEntry;
+
+				if (entry is KalturaPlaylist) {
+					copy = Cloner.cloneKalturaPlaylist(entry as KalturaPlaylist);
+				}
+				else if (entry is KalturaMixEntry) {
+					copy = Cloner.cloneKalturaMixEntry(entry as KalturaMixEntry);
+					// mixes:
+					partsTable.text = resourceManager.getString('cms', 'parts');
+				}
+				else if (entry is KalturaLiveStreamAdminEntry) {
+					copy = Cloner.cloneKalturaStreamAdminEntry(entry as KalturaLiveStreamAdminEntry);
+				}
+				else if (entry is KalturaMediaEntry) {
+					copy = Cloner.cloneKalturaMediaEntry(entry as KalturaMediaEntry);
+				}
+				return copy;
+			}
+
+
+			/**
+			 * set screen contents according to data
+			 * */
+			public function init():void {
+				var selectedEntry:KalturaBaseEntry = entryDetailsModel.selectedEntry;
+
+				_undoToEntry = createWorkingCopy(selectedEntry);
+
+				if (_undoToEntry is KalturaLiveStreamAdminEntry) {
+					_isLiveStream = true;
+				}
+
+				// mixes:
+				if (!_undoToEntry is KalturaMixEntry) {
+					partsTable.text = resourceManager.getString('cms', 'usageInMixes');
+				}
+
+				// init the top panel
+				entryMetaData.init();
+
+				// show correct panels according to entry type
+				// live entry
+				if (_isLiveStream) {
+					showLiveStreamSetup();
+				}
+				else if (selectedEntry is KalturaMixEntry) {
+					//this is a mix
+					showMixSetup();
+				}
+				else {
+					// this entry is a regular video/image/audio
+					showNormalSetup();
+					if (int(selectedEntry.mediaType) == KalturaMediaType.IMAGE) {
+						removeThumbnailsTab();
+					}
+				}
+				
+				loadEntries();
+				PopUpManager.centerPopUp(this);
+				
+				PermissionManager.getInstance().applyAllAttributes(this, "entryDrilldown");
+				
+				// roles and permissions 
+				var tabsToHide:Array = PermissionManager.getInstance().getRelevantSubTabsToHide("entryDrilldown");
+				for each (var subtabName:String in tabsToHide) {
+					if (viewStack.getChildByName(subtabName)) {
+						viewStack.removeChild(this[subtabName]);
+					}
+				}
+			}
+
+
+			/**
+			 * ask JS to open the preview player, log the action to analytics
+			 * */
+			private function openPreview(e:Event):void {
+				if (openPlayerFunc) {
+					JSGate.doPreviewEmbed(openPlayerFunc, _undoToEntry.id, _undoToEntry.name, cutTo512Chars(_undoToEntry.description), !showEmbedCode, false, null, null, hasMobileFlavors() );
+				}
+				GoogleAnalyticsTracker.getInstance().sendToGA(GoogleAnalyticsConsts.CONTENT_OPEN_PREVIEW_AND_EMBED, GoogleAnalyticsConsts.CONTENT);
+				KAnalyticsTracker.getInstance().sendEvent(KAnalyticsTrackerConsts.CONTENT, KalturaStatsKmcEventType.CONTENT_OPEN_PREVIEW_AND_EMBED, "content>Open Preview and Embed");
+
+				//First time funnel
+				if (!SoManager.getInstance().checkOrFlush(GoogleAnalyticsConsts.CONTENT_FIRST_TIME_PLAYER_EMBED))
+					GoogleAnalyticsTracker.getInstance().sendToGA(GoogleAnalyticsConsts.CONTENT_FIRST_TIME_PLAYER_EMBED, GoogleAnalyticsConsts.CONTENT);
+			}
+			
+			/**
+			 * does the current entry have mobile flavors?
+			 * */
+			private function hasMobileFlavors():Boolean {
+				var result:Boolean = false;
+				var fa:KalturaFlavorAsset;
+				if(entryDetailsModel.flavorParamsAndAssetsByEntryId && entryDetailsModel.flavorParamsAndAssetsByEntryId.length)
+				{
+					for each (var kawp:FlavorAssetWithParamsVO in entryDetailsModel.flavorParamsAndAssetsByEntryId) {
+						fa = kawp.kalturaFlavorAssetWithParams.flavorAsset; 
+						if (fa && fa.tags)
+						{
+							if(fa.tags.indexOf('iphone') > -1 ){
+								result = true;
+								break;
+							};
+							if(fa.tags.indexOf('ipad') > -1 ){
+								result = true; 
+								break;
+							};
+							if(fa.fileExt == 'ogg' || fa.fileExt == 'ogv' || fa.fileExt == 'oga'){
+								result = true;
+								break;
+							};
+							if(fa.fileExt == '3gp') {
+								result = true;
+								break;
+							};
+						}
+					}
+				}
+				return result;
+
+			}
+
+
+			/**
+			 * load all mix entries or load mixes that uses this entry if it is not a mix
+			 */
+			private function loadEntries():void {
+				if (_undoToEntry is KalturaMixEntry) {
+					//get all mix entries
+					var cgEvent:EntryEvent = new EntryEvent(EntryEvent.GET_ALL_ENTRIES, entryDetailsModel.selectedEntry);
+					cgEvent.dispatch();
+				}
+				else if (!_isLiveStream) {
+					//get all entries that uses this mix 
+					var getRoughcuts:EntryEvent = new EntryEvent(EntryEvent.GET_ENTRY_ROUGHCUTS, entryDetailsModel.selectedEntry);
+					getRoughcuts.dispatch();
+				}
+
+			}
+
+
+			private function onPaging():void {
+				loadEntries();
+				GoogleAnalyticsTracker.getInstance().sendToGA(GoogleAnalyticsConsts.CONTENT_GO_TO_PAGE, GoogleAnalyticsConsts.CONTENT);
+				KAnalyticsTracker.getInstance().sendEvent(KAnalyticsTrackerConsts.CONTENT, KalturaStatsKmcEventType.CONTENT_CONTENT_GO_TO_PAGE, "content>Show Rows");
+			}
+
+
+			/**
+			 * "x" button clicked - see if need save or just close.
+			 * */
+			private function onClose():void {
+				var metadataChanged:Boolean = false;
+				var metadataInfo:EntryMetadataDataVO = entryDetailsModel.metadataInfo;
+				var metadataProfile:KMCMetadataProfileVO = filterModel.metadataProfile;
+
+				if (metadataProfile && metadataProfile.profile && metadataInfo) {
+					var newMetadataXML:XML = MetadataDataParser.toMetadataXML(metadataInfo.metadataDataObject, metadataProfile);
+					if (metadataInfo.metadata) {
+						var originalMetadataXML:XML = new XML(metadataInfo.metadata.xml);
+						if (!(MetadataDataParser.compareMetadata(newMetadataXML, originalMetadataXML))) {
+							metadataChanged = true;
+						}
+					}
+					//new metadata was inserted
+					else if (newMetadataXML.children().length() > 0) {
+						metadataChanged = true;
+					}
+				}
+
+				if (!ObjectUtil.compareObjects(entryDetailsModel.selectedEntry, _undoToEntry) || metadataChanged) {
+					// had change, ask for save
+					Alert.show(resourceManager.getString('cms', 'undoEntryDetails'), resourceManager.getString('cms', 'undoEntryDetailsTitle'), Alert.YES | Alert.NO, null, removeMe);
+				}
+				else {
+					// remove window
+					removeMe();
+				}
+			}
+
+
+			/**
+			 * 
+			 * */
+			private function removeMe(event:CloseEvent = null):void {
+				//if a mix was created or anything that isn't trackable do save so it
+				//will be refreshed
+				if (_untrackableChangeFlag) {
+					//so we won't have infinate loop
+					_untrackableChangeFlag = false;
+					save();
+					//TODO why save? we just need to refresh the entries list.
+					return;
+				}
+				///////////////////////////////////////////////////////////
+
+				if ((event == null || event.detail == Alert.YES)) {
+					_undoToEntry = null;
+					entryMetaData.clearPlayer();
+					var cgEvent:WindowEvent = new WindowEvent(WindowEvent.CLOSE);
+					cgEvent.dispatch();
+				}
+			}
+
+
+
+			/**
+			 * validate all panels, if validation is ok update server.
+			 * */
+			private function save():void {
+				// validation:
+				var validationResult:EntryDetailsValidationError = entryMetaData.save();
+				if (validationResult.error == null) {
+					// metadata validation passed.
+					validationResult = entrySch.save();
+					if (validationResult.error == null) {
+						// scheduling validation passed.
+						if (_isLiveStream) {
+							validationResult = liveStream.save();
+						}
+					}
+				}
+
+				if (validationResult.error == EntryDetailsValidationError.ENTRY_NAME_MISSING) {
+					// Atar: need to alert no name? there's validation on the TF itself 
+				}
+				else if (validationResult.error == EntryDetailsValidationError.CATEGORIES_LIMIT) {
+					Alert.show(resourceManager.getString('cms', 'categoriesLimitErrorMsg'), resourceManager.getString('cms', 'categoriesErrorTitle'));
+				}
+				// scheduling validation:
+				else if (validationResult.error == EntryDetailsValidationError.SCHEDULING_START_DATE) {
+					Alert.show(resourceManager.getString('cms', 'scedualingStartDateError'), resourceManager.getString('cms', 'scedualingErrorTitle'));
+				}
+				else if (validationResult.error == EntryDetailsValidationError.SCHEDULING_END_DATE) {
+					Alert.show(resourceManager.getString('cms', 'scedualingEndDateError'), resourceManager.getString('cms', 'scedualingErrorTitle'));
+				}
+				// livestream validation:
+				else if (validationResult.error == EntryDetailsValidationError.BITRATE) {
+					Alert.show(ResourceManager.getInstance().getString('cms', 'bitrateValidation'));
+				}
+				else {
+					// if we got here, all panels validation passed ok, the error was null.	
+					var cgEvent:EntriesEvent = new EntriesEvent(EntriesEvent.UPDATE_ENTRIES, new ArrayCollection([_undoToEntry]));
+					cgEvent.dispatch();
+
+					KAnalyticsTracker.getInstance().sendEvent(KAnalyticsTrackerConsts.CONTENT, KalturaStatsKmcEventType.CONTENT_EDIT_ENTRY, "EditedtDrillDown", _undoToEntry.id);
+					GoogleAnalyticsTracker.getInstance().sendToGA(GoogleAnalyticsConsts.CONTENT_EDIT_ENTRY + ">entryID>" + _undoToEntry.id, GoogleAnalyticsConsts.CONTENT);
+//					removeMe();
+				}
+			}
+
+
+			private function removeColums(event:Event):void {
+				event.target.removeColumn(resourceManager.getString('cms', 'preview'));
+				event.target.removeColumn(resourceManager.getString('cms', 'mediaType'));
+				event.target.removeColumn(resourceManager.getString('cms', 'playlistType'));
+				event.target.removeColumn(resourceManager.getString('cms', 'flags'));
+				event.target.removeColumn(resourceManager.getString('cms', 'moderationStatus'));
+				event.target.removeColumn(resourceManager.getString('cms', 'creator'));
+				event.target.removeColumn(resourceManager.getString('cms', 'rating'));
+				event.target.removeColumn(resourceManager.getString('cms', 'playerLoads'));
+			}
+
+
+			/**
+			 * Check if a string is longer than 512. if it is it will cut it and add ...
+			 */
+			private function cutTo512Chars(str:String):String {
+				if (!str)
+					return "";
+				if (str.length >= 509) {
+					var tmp:String = str.substr(0, 509);
+					var words:Array = tmp.split(" ");
+					words.pop();
+					tmp = words.join(" ");
+					return tmp + "...";
+				}
+				return str;
+			}
+
+
+			/**
+			 * Translate the status enum type to matching status string
+			 */
+			public function getStatusString(str:String):String {
+				var result:String;
+				switch (str) {
+					case KalturaEntryStatus.MODERATE:
+						result = resourceManager.getString('cms', 'metadata');
+						break;
+					case KalturaEntryStatus.BLOCKED:
+						result = resourceManager.getString('cms', 'metadata');
+						break;
+					case KalturaEntryStatus.DELETED:
+						result = resourceManager.getString('cms', 'metadata');
+						break;
+					case KalturaEntryStatus.ERROR_CONVERTING:
+						result = resourceManager.getString('cms', 'statuserrorconverting');
+						break;
+					case KalturaEntryStatus.IMPORT:
+						result = resourceManager.getString('cms', 'import');
+						break;
+					case KalturaEntryStatus.PENDING:
+						result = resourceManager.getString('cms', 'metadata');
+						break;
+					case KalturaEntryStatus.PRECONVERT:
+						result = resourceManager.getString('cms', 'metadata');
+						break;
+					case KalturaEntryStatus.READY:
+						result = resourceManager.getString('cms', 'metadata');
+						break;
+				}
+				return result;
+			};
+
+
+			/**
+			 * sets the untrackable change flag to true
+			 * */
+			private function setUntrackableChange():void {
+				_untrackableChangeFlag = true;
+			}
+			
+			
+			/**
+			 * list of tabs to remove from the drilldown window, separated by ",".
+			 * */
+			public function set hideTabs(tabs:String):void {
+				var tabsList:Array = tabs.split(",");
+				var l:int = tabsList.length;
+				var tab:DisplayObject;
+				for (var i:int = 0; i<l; i++) {
+					tab = viewStack.getChildByName(tabsList[i]);
+					if (tab) {
+						viewStack.removeChild(tab);
+					}
+				}
+			}
+			
+			
+			/**
+			 * @private
+			 * need the getter because applyPermission reads 
+			 * the hideTabs value before it sets it.
+			 * */
+			public function get hideTabs():String {
+				return '';
+			}
+			
+		]]>
+	</mx:Script>
+	<mx:TabBar id="dtn" width="140" dataProvider="{viewStack}" direction="vertical" styleName="dtn"
+			   useHandCursor="true" buttonMode="true" tabHeight="25"/>
+
+	<mx:ViewStack id="viewStack" width="100%" height="100%" change="{entryMetaData.pausePreview()}" creationPolicy="all"
+				  selectedIndex="{dtn.selectedIndex}" styleName="sectionViewStack">
+		<!-- Metadata Tab -->
+		<ed:EntryMetadata id="entryMetaData" width="100%" height="100%" styleName="metaDataHbox"
+						  label="{ResourceManager.getInstance().getString('cms', 'metadata')}"
+						  selectedEntry="{_undoToEntry}" isLiveStream="{_isLiveStream}" context="{context}"
+						  entryDetailsModel="{entryDetailsModel}" untrackableChange="{setUntrackableChange()}"
+						  openPreview="{openPreview(event)}" viewStack="{viewStack}" showEmbed="{showEmbedCode}"/>
+		<!-- Thumbnails Tab -->
+		<ed:EntryThumbnails id="entryThumbnails" label="{ResourceManager.getInstance().getString('cms', 'thumbnails')}"
+							selectedEntry="{_undoToEntry}" entryDetailsModel="{entryDetailsModel}" 
+							context="{context}" enableDistribution="{filterModel.enableDistribution}"/>
+
+		<!-- Access Control Tab -->
+		<ed:EntryAccessControl id='entryAcp' styleName="accessControlVbox"
+							   label="{ResourceManager.getInstance().getString('cms', 'accessControl')}"
+							   selectedEntry="{_undoToEntry}" filterModel="{filterModel}"
+							   accessControlData="{filterModel.accessControlProfiles}"/>
+
+		<!-- Scheduling Tab -->
+		<ed:EntryScheduling id='entrySch' label="{ResourceManager.getInstance().getString('cms', 'scheduling')}"
+							selectedEntry="{_undoToEntry}"/>
+
+		<!-- Flavor Assets Tab -->
+		<ed:EntryFlavors id="entryAsstes" styleName="flavorsVbox"
+						 label="{ResourceManager.getInstance().getString('cms', 'videoFiles')}"
+						 selectedEntry="{_undoToEntry}"
+						 flavorAssets="{entryDetailsModel.flavorParamsAndAssetsByEntryId}"/>
+
+		<!-- content Tab -->
+		<mx:VBox id="contentTab" width="100%" height="100%" styleName="contentVbox"
+				 label="{ResourceManager.getInstance().getString('cms', 'mixesTab')}">
+			<mx:Label id="partsTable" styleName="drillDownTitleLabel"/>
+			<view:EntryTable width="100%" height="100%" dataProvider="{entryDetailsModel.selectedEntry.parts}"
+							 creationComplete="{removeColums(event)}" sortableColumns="false"/>
+			<controls:Paging id="paging" width="100%" nextPage="onPaging()" prvPage="onPaging()" getPageNum="onPaging()"
+							 showRowsInPage="false" />
+		</mx:VBox>
+
+		<!-- Live stream -->
+		<ed:EntryLiveStreaming id="liveStream" rootUrl="{context.rootUrl}"
+							   label="{ResourceManager.getInstance().getString('cms', 'liveStream')}"
+							   selectedEntry="{_undoToEntry}"/>
+
+		<!-- Custom Data -->
+		<ed:EntryCustomData id="customData" label="{ResourceManager.getInstance().getString('cms', 'customData')}"
+							filterModel="{filterModel}" entryDetailsModel="{entryDetailsModel}"/>
+		
+		<!-- Distribution Tab -->
+		<ed:EntryDistribution id="entryDistribution" label="{ResourceManager.getInstance().getString('cms', 'distribution')}"
+							  selectedEntry="{_undoToEntry}" entryDetailsModel="{entryDetailsModel}" viewStack="{viewStack}" />
+
+	</mx:ViewStack>
+	<mx:ControlBar>
+		<mx:Button id="saveBtn" label="{resourceManager.getString('cms', 'saveChanges')}" click="save()"
+				   buttonMode="true"/>
+	</mx:ControlBar>
+</containers:HelpTitleWindow>
