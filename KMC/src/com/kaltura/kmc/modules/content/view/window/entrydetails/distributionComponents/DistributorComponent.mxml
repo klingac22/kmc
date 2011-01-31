@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--- represents a distributor for selectDistributors window -->
+<components:CBLabelComponent xmlns:mx="http://www.adobe.com/2006/mxml" 
+		 xmlns:components="com.kaltura.kmc.modules.content.view.window.entrydetails.distributionComponents.*">
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.types.KalturaEntryDistributionStatus;
+			import com.kaltura.vo.KalturaDistributionProfile;
+			import com.kaltura.vo.KalturaEntryDistribution;
+
+
+			public var initState:Boolean;
+			public var distribution:KalturaEntryDistribution;
+			private var _distributionProfile:KalturaDistributionProfile;
+			
+			public function get distributionProfile():KalturaDistributionProfile
+			{
+				return _distributionProfile;
+			}
+
+			public function set distributionProfile(value:KalturaDistributionProfile):void
+			{
+				if (value) {
+					_distributionProfile = value;
+					super.labelText = _distributionProfile.name;
+				}
+			}
+		]]>
+	</mx:Script>
+</components:CBLabelComponent>
