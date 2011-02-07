@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--- represents a distributor for selectDistributors window -->
+<components:CBLabelComponent xmlns:mx="http://www.adobe.com/2006/mxml" 
+		 xmlns:components="com.kaltura.kmc.modules.content.view.window.entrydetails.distributionComponents.*">
+	<mx:Script>
+		<![CDATA[
+			import com.hurlant.util.der.Integer;
+			import com.kaltura.kmc.modules.content.model.EntryDistributionWithProfile;
+			import com.kaltura.types.KalturaEntryDistributionStatus;
+			import com.kaltura.vo.KalturaDistributionProfile;
+			import com.kaltura.vo.KalturaEntryDistribution;
+			
+			import mx.core.mx_internal;
+
+
+			public var initState:Boolean;
+			private var _distribution:KalturaEntryDistribution;
+			private var _distributionProfile:KalturaDistributionProfile;
+			
+			override public function set data(value:Object):void {
+				var distributionWithProfile:EntryDistributionWithProfile = value as EntryDistributionWithProfile;
+				_distribution = distributionWithProfile.kalturaEntryDistribution;
+				_distributionProfile = distributionWithProfile.kalturaDistributionProfile;
+				super.labelText = _distributionProfile.name;
+		
+				switch (_distribution.status) {
+					case KalturaEntryDistributionStatus.QUEUED:
+					case KalturaEntryDistributionStatus.PENDING:
+					case KalturaEntryDistributionStatus.READY:
+					case KalturaEntryDistributionStatus.ERROR_DELETING:
+					case KalturaEntryDistributionStatus.ERROR_SUBMITTING:
+					case KalturaEntryDistributionStatus.ERROR_UPDATING:
+						cbSelected = initState = true;
+						cbEnabled = parentDocument.enableRemoveDistribution;
+						break;
+					case KalturaEntryDistributionStatus.DELETING:
+					case KalturaEntryDistributionStatus.UPDATING:
+					case KalturaEntryDistributionStatus.SUBMITTING:
+						cbSelected = initState = true;
+						cbEnabled = false;
+						break;
+					case KalturaEntryDistributionStatus.REMOVED:
+					case int.MIN_VALUE:
+						cbEnabled = parentDocument.enableAddDistribution;
+						break;
+	
+				}	
+			
+			}
+		
+		]]>
+	</mx:Script>
+</components:CBLabelComponent>
