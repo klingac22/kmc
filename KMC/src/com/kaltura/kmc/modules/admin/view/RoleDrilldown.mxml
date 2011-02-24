@@ -46,7 +46,7 @@
 			 */
 			private var _allPermissionGroupManagers:Array = new Array();
 
-			[ArrayElementType("CheckBox")]
+			[ArrayElementType("mx.controls.CheckBox")]
 			/**
 			 * All checkboxes array (<code>CheckBox</code> instances)
 			 */
@@ -535,7 +535,7 @@
 			 * dispatch help event with relevant anchor
 			 * */
 			private function onHelp():void {
-				dispatchEvent(new KmcHelpEvent(KmcHelpEvent.HELP, 'section2'));
+				dispatchEvent(new KmcHelpEvent(KmcHelpEvent.HELP, 'section422'));
 			}
 
 
