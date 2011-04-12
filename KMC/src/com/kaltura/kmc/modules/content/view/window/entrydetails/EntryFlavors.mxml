@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!---
+Flavours tab of EntryDetailsWin
+-->
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:entryDetails="com.kaltura.kmc.modules.content.view.window.entrydetails.*" width="100%" height="100%">
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.kmc.modules.content.events.EntryEvent;
+			import com.kaltura.kmc.modules.content.view.window.entrydetails.renderers.FlavorAssetIDRenderer;
+			import com.kaltura.vo.KalturaBaseEntry;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.dataGridClasses.DataGridColumn;
+			
+			private var _selectedEntry:KalturaBaseEntry;
+			
+			[Bindable]
+			private var _flavorAssets:ArrayCollection;
+			
+			
+			public function get selectedEntry():KalturaBaseEntry
+			{
+				return _selectedEntry;
+			}
+			
+			public function set selectedEntry(selectedEntry:KalturaBaseEntry):void
+			{
+				_selectedEntry = selectedEntry;
+				
+				/* 	if(_selectedEntry != null)
+				{
+				var cgEvent : EntryEvent = new EntryEvent(EntryEvent.GET_FLAVOR_ASSETS, _selectedEntry);
+				cgEvent.dispatch();
+				} */
+			}
+			
+			public function get flavorAssets():ArrayCollection
+			{
+				return _flavorAssets;
+			}
+			
+			public function set flavorAssets(flavorAssets:ArrayCollection):void
+			{
+				_flavorAssets = flavorAssets;
+				
+			}
+			
+			public function set hideColumns(indices:String):void {
+				var ind:Array = indices.split(",");
+				var arrCol:ArrayCollection = new ArrayCollection(dg.columns);
+				for (var i:int = 0; i<ind.length; i++) {
+					arrCol.removeItemAt(int(ind[i]));
+				}
+				dg.columns = arrCol.source;
+				for each (var col:DataGridColumn in arrCol) {
+					col.width = col.width;
+				} 
+			}
+			
+			public function get hideColumns():String {
+				return '';
+			}
+			
+			
+		]]>
+	</mx:Script>
+	
+	
+	
+	<mx:Text width="100%" text="{resourceManager.getString('cms','flavorAssetsDescription')}"/>
+	<entryDetails:FlavorsTable id="dg" flavorAssets="{_flavorAssets}"/>
+	
+</mx:VBox>
