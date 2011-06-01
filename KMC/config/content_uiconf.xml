@@ -1,0 +1,15 @@
+<root>
+	<locale>
+		<path>locale/{locale}/content_{locale}_ResourceModule.swf</path>
+		<language>en_US</language>
+	</locale>
+	<uiconf>
+		<kdp>
+			<moderation>@@ModerationUIConfID@@</moderation>
+			<drilldown>@@KdpDrilldownForContentUIConfID@@</drilldown>
+			<captureThumbnail>@@KdpCaptureThumbnailForContentUIConfID@@</captureThumbnail>
+		</kdp>
+		<metadata>@@MetadataUIConfID@@</metadata>
+	</uiconf>
+	<bulkupload>http://www.kaltura.com/content/docs/csv/kaltura_batch_upload_cassiopeia.csv</bulkupload>
+</root>
