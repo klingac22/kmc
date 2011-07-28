@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<project name="Locale Compiler" basedir="." default="build">
+	
+	<!-- the language for which we compile locale -->
+    <property name="LANGUAGE" value="en_US"/>
+	
+	<!-- path to Flex SDK -->
+    <property name="FLEX_HOME" value="C:/Program Files/Adobe/Adobe Flash Builder 4/sdks/3.5.0"/>
+	
+	<!-- directory for the compiled locale swf -->
+    <property name="DEPLOY_DIR" value="../html-template/locale/${LANGUAGE}"/>
+	
+	
+	
+	<!-- include flex tasks -->
+	<taskdef resource="flexTasks.tasks" classpath="${FLEX_HOME}/ant/lib/flexTasks.jar" />
+    
+
+	
+	<target name="compile" description="compile all locales">
+        <echo>Compiling all KMC locales:</echo>
+        <echo>Compiling locale: KMC</echo>
+		<ant antfile="locale_kmc.xml" inheritAll="true" target="compile"/>
+        <echo>Compiling locale: account</echo>
+		<ant antfile="locale_account.xml" inheritAll="true" target="compile"/>
+        <echo>Compiling locale: admin</echo>
+		<ant antfile="locale_admin.xml" inheritAll="true" target="compile"/>
+        <echo>Compiling locale: analytics</echo>
+		<ant antfile="locale_analytics.xml" inheritAll="true" target="compile"/>
+        <echo>Compiling locale: content</echo>
+		<ant antfile="locale_content.xml" inheritAll="true" target="compile"/>
+        <echo>Compiling locale: dashboard</echo>
+		<ant antfile="locale_dashboard.xml" inheritAll="true" target="compile"/>
+        <echo>Compiling locale: studio</echo>
+		<ant antfile="locale_studio.xml" inheritAll="true" target="compile"/>
+        <echo>Compiling locale: create</echo>
+		<ant antfile="locale_create.xml" inheritAll="true" target="compile"/>
+    </target>
+
+		
+	<target name="build" depends="clean, init, compile">
+		<echo>Locale files for ${LANGUAGE} compiled successfully</echo>
+	</target>
+	
+	
+	<target name="clean" description="delete old file">
+		<echo>Deleting compiled files for locale ${LANGUAGE}</echo>
+        <delete failonerror="false">
+            <fileset dir="${DEPLOY_DIR}" />
+			<!-- includes="${MODULE}_${LANGUAGE}_ResourceModule.swf" -->
+        </delete>
+    </target>
+	
+	
+	<target name="init">
+		<mkdir dir="${DEPLOY_DIR}" description="Make sure there is a bin directory"/>
+	</target>
+</project>
+
+
+<!-- sample commandline locale compilation -->
+<!-- 
+	 mxmlc -locale=en_US 
+     -source-path=locale/{locale}
+     -include-resource-bundles=RegistrationForm,collections,containers,controls,core,effects,skins,styles 
+     -output en_US_ResourceModule.swf
+-->
