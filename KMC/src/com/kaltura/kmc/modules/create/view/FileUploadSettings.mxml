@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<containers:HelpTitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
+							xmlns:containers="com.kaltura.containers.*"
+							xmlns:view="com.kaltura.kmc.modules.create.view.*"
+							width="550" height="400" layout="vertical"
+							showCloseButton="true" close="closeHandler(event)"
+							showHelpButton="true" help="helpHandler(event)"
+							creationComplete="creationCompleteHandler(event)"
+							title="{ResourceManager.getInstance().getString('create', 'uploadSettingTitle')}"
+							>
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.KalturaClient;
+			import com.kaltura.commands.MultiRequest;
+			import com.kaltura.commands.conversionProfile.ConversionProfileList;
+			import com.kaltura.commands.media.MediaAdd;
+			import com.kaltura.errors.KalturaError;
+			import com.kaltura.events.KalturaEvent;
+			import com.kaltura.kmc.events.KmcHelpEvent;
+			import com.kaltura.kmc.events.KmcNavigationEvent;
+			import com.kaltura.kmc.modules.create.MultipleMediaFilesSelector;
+			import com.kaltura.kmc.modules.create.vo.UploadFile;
+			import com.kaltura.managers.FileUploadManager;
+			import com.kaltura.types.KalturaMediaType;
+			import com.kaltura.vo.FileUploadVO;
+			import com.kaltura.vo.KalturaConversionProfile;
+			import com.kaltura.vo.KalturaConversionProfileListResponse;
+			import com.kaltura.vo.KalturaMediaEntry;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.Application;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.CursorManager;
+			import mx.managers.PopUpManager;
+			import mx.resources.ResourceManager;
+			
+			
+			public var client:KalturaClient;
+			
+			
+			private const VIDEO_TYPES:Array = ["flv","asf","qt","mov","mpg","avi","wmv","mp4","3gp","f4v","m4v"];
+			private const AUDIO_TYPES:Array = ["mp3","wav"];
+			private const IMAGE_TYPES:Array = ["jpg","bmp","png","gif","tiff"];
+
+			
+			[Bindable]
+			/**
+			 * list of available conversion profiles 
+			 * <code>KalturaConversionProfile</code> objects
+			 * */
+			private var _conversionProfiles:ArrayCollection;
+			
+			
+			
+			[Bindable][ArrayElementType("UploadFile")]
+			private var _files:ArrayCollection;
+			
+			/**
+			 * files to be uploaded 
+			 * */
+			public function uploadFiles(value:Array, addToExisting:Boolean=false):void {
+				var ar:Array = new Array();
+				var uf:UploadFile;
+				for each (var fr:FileReference in value) {
+					uf = new UploadFile();
+					uf.fr = fr;
+					uf.mediaType = getFileMediaType(fr);
+					uf.fileName = removeFileExt(fr.name);
+					ar.push(uf);
+				}
+				if (addToExisting) {
+					_files.addAll(new ArrayCollection(ar));
+				}
+				else {
+					_files = new ArrayCollection(ar);
+				}
+			}
+			
+			/**
+			 * remove file extension from the given string, if exists
+			 * @param str	the string to truncate
+			 * @return 	truncated string
+			 * */
+			private function removeFileExt(str:String):String {
+				var ind:int = str.lastIndexOf(".");
+				if (ind > 0) {
+					return str.substring(0, ind);
+				}
+				else {
+					return str;
+				}
+			}
+			
+			/**
+			 * get media type according to file extension
+			 * @param fr	the queried file
+			 * @return matching KalturaMediaType enum value, or -1 if no match found
+			 * */
+			private function getFileMediaType(fr:FileReference):int {
+				var dot:int = fr.name.lastIndexOf(".");
+				var ext:String = fr.name.substring(dot + 1).toLowerCase();
+				var str:String;
+				for each (str in VIDEO_TYPES) {
+					if (str == ext) {
+						return KalturaMediaType.VIDEO;
+					}
+				}
+				for each (str in AUDIO_TYPES) {
+					if (str == ext) {
+						return KalturaMediaType.AUDIO;
+					}
+				}
+				for each (str in IMAGE_TYPES) {
+					if (str == ext) {
+						return KalturaMediaType.IMAGE;
+					}
+				}
+				return -1;
+			}
+
+			
+			private function creationCompleteHandler(event:FlexEvent):void {
+				submitBtn.enabled = false;
+				listConversionProfiels();
+			}
+			
+			private function listConversionProfiels():void {
+				var cpl:ConversionProfileList = new ConversionProfileList();
+				cpl.addEventListener(KalturaEvent.COMPLETE, conversionProfilesHandler);
+				cpl.addEventListener(KalturaEvent.FAILED, conversionProfilesHandler);
+				client.post(cpl);
+			}
+			
+			private function conversionProfilesHandler(e:KalturaEvent):void {
+				if (e.type == KalturaEvent.FAILED) {
+					showError(e.error.errorMsg);
+				}
+				else {
+					var resp:Array = (e.data as KalturaConversionProfileListResponse).objects;
+					var ar:Array = new Array();
+					var def:KalturaConversionProfile;
+					for each (var o:Object in resp) {
+						if (o is KalturaConversionProfile) {
+							if ((o as KalturaConversionProfile).isDefault) {
+								def = o as KalturaConversionProfile;
+							}
+							else {
+								ar.push(o as KalturaConversionProfile);
+							}
+						}
+					}
+					if (def) {
+						ar.unshift(def);
+					}
+					_conversionProfiles = new ArrayCollection(ar);
+				}
+				submitBtn.enabled = true;
+			}
+			
+			protected function showError(str:String):void {
+				Alert.show(str, resourceManager.getString('common', 'error'));
+			}
+			
+			
+			/**
+			 * open the file browser 
+			 * */
+			protected function addMoreFiles():void {
+				var neu:MultipleMediaFilesSelector = new MultipleMediaFilesSelector();
+				neu.addEventListener(MultipleMediaFilesSelector.FILES_SELECTED, addFilesToList);
+				neu.doFileUpload();
+			}
+			
+			
+			/**
+			 * adds selected files to the upload files list 
+			 * */
+			protected function addFilesToList(e:Event):void {
+				e.target.removeEventListener(MultipleMediaFilesSelector.FILES_SELECTED, addFilesToList);
+				uploadFiles((e.target as MultipleMediaFilesSelector).getFiles(), true);
+			}
+
+			private function getUploadLimit():Number {
+				return Application.application.parameters.maxUploadSize;
+			}
+			
+			/**
+			 * if file size of any file exceeds partner limit, return false
+			 * */
+			protected function validateFileSize():Boolean {
+				var result:Boolean = true;
+				var bytesInMega:int = 1024*1024;
+				var maxSize:Number = getUploadLimit();
+				for each (var file:UploadFile in _files) {
+					if ((file.fr.size/bytesInMega) > maxSize) {
+						result = false;
+						break;
+					}
+				}
+				return result;
+			}
+
+			/**
+			 * create new media entries, then pass FRs to the upload  
+			 * manager to upload them as source for these entries.
+			 * */
+			protected function submit(event:MouseEvent):void {
+				
+				if (!validateFileSize()) {
+					Alert.show(ResourceManager.getInstance().getString('common', 'filesTooBig', [getUploadLimit()]), 
+						ResourceManager.getInstance().getString('common', 'error'));
+					return;
+				}
+				
+				
+				CursorManager.setBusyCursor();
+				submitBtn.enabled = false;
+				var mr:MultiRequest = new MultiRequest();
+				var ma:MediaAdd;
+				var kme:KalturaMediaEntry;
+				
+				for each (var file:UploadFile in _files) {
+					kme = new KalturaMediaEntry();
+					kme.name = file.fileName;
+					kme.mediaType = file.mediaType;
+					kme.conversionProfileId = cnvrtProfCb.selectedItem.id;
+					
+					ma = new MediaAdd(kme);
+					mr.addAction(ma);
+				}
+				mr.addEventListener(KalturaEvent.COMPLETE, addMediaToEntries);
+				mr.addEventListener(KalturaEvent.FAILED, addMediaToEntries);
+				client.post(mr);
+			}
+			
+			
+			/**
+			 * add media files to the newly created entries
+			 * @param e	the event dispatched by the entries creation call
+			 * */
+			protected function addMediaToEntries(e:KalturaEvent):void {
+				e.target.removeEventListener(KalturaEvent.COMPLETE, addMediaToEntries);
+				e.target.removeEventListener(KalturaEvent.FAILED, addMediaToEntries);
+				if (e.type == KalturaEvent.FAILED) {
+					showError(e.error.errorMsg);
+					return;
+				}
+				else {
+					// internal errors
+					for each (var o:Object in e.data) {
+						if (o is KalturaError) {
+							showError(o.errorMsg);
+							return;
+						}
+						else if (o.error) {
+							// in MRs, errors are not KalturaErrors.
+							showError(o.error.message);
+							return;
+						}
+					}
+					// pass FRs to upload manager
+					// we assume an entry for each file, in matching order
+					var uploader:FileUploadManager = FileUploadManager.getInstance();
+					var entry:KalturaMediaEntry;
+					var entries:Array = e.data as Array;
+					var fu:UploadFile;		// local vo
+					var fuv:FileUploadVO;	// uploader vo
+					for (var i:int = 0; i< entries.length; i++) {
+						entry = entries[i];
+						fu = _files[i];
+						fuv = uploader.createFuv(entry.id, entry.mediaType, fu.fr, "0");	// always use source, but assuming source is always 0 is ugly :)
+						uploader.updateEntryContent(entry.id, [fuv]);
+					}
+					// dispatch navigation event
+					dispatchEvent(new KmcNavigationEvent(KmcNavigationEvent.NAVIGATE, "content"));
+					// remove popup
+					closeHandler(null);
+				}
+				CursorManager.removeBusyCursor();
+			}
+
+
+			protected function closeHandler(event:CloseEvent):void {
+				PopUpManager.removePopUp(this);
+			}
+
+
+			protected function helpHandler(event:Event):void {
+				dispatchEvent(new KmcHelpEvent(KmcHelpEvent.HELP, 'desktop_upload'));
+			}
+
+		]]>
+	</mx:Script>
+	
+	<mx:HBox verticalAlign="middle" >
+		<mx:Label text="{resourceManager.getString('create', 'convProfLbl')}:" 
+				  styleName="simpleBoldText"/>
+		<mx:ComboBox id="cnvrtProfCb" dataProvider="{_conversionProfiles}" 
+					 selectedIndex="0" labelField="name"/>
+	</mx:HBox>
+	<!--<mx:Label text="{resourceManager.getString('create', 'uploadedFiles')}" styleName="tableName"/>-->
+	<mx:Spacer height="12" />
+	<view:FilesTable id="filesTable" width="100%" dataProvider="{_files}" addFiles="addMoreFiles()"/>
+	<mx:ControlBar>
+		<mx:Button id="submitBtn" click="submit(event)" buttonMode="true"
+				   label="{resourceManager.getString('create', 'submitUploadLabel')}"/>
+	</mx:ControlBar>
+</containers:HelpTitleWindow>
