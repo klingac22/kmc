@@ -8,6 +8,7 @@ package com.kaltura.kmc.modules.content.utils {
 	import com.kaltura.kmc.modules.content.model.CmsModelLocator;
 	import com.kaltura.kmc.modules.content.model.MetadataDataObject;
 	import com.kaltura.kmc.modules.content.model.types.CustomMetadataConstantTypes;
+	import com.kaltura.kmc.modules.content.view.window.entrydetails.customDataComponents.ConsistentDateField;
 	import com.kaltura.kmc.modules.content.view.window.entrydetails.customDataComponents.DateFieldWithTime;
 	import com.kaltura.kmc.modules.content.view.window.entrydetails.customDataComponents.EntryIDLinkTable;
 	import com.kaltura.kmc.modules.content.view.window.entrydetails.customDataComponents.MultiComponent;
@@ -290,9 +291,17 @@ package com.kaltura.kmc.modules.content.utils {
 		 * @return the built component
 		 */
 		public function buildComponent(component:XML, boundModel:MetadataDataObject, nestedFieldsArray:ArrayCollection):UIComponent {
-			var componentName:String = component.@compPackage + component.localName();
-			var ClassReference:Class = getDefinitionByName(componentName) as Class;
-			var compInstance:UIComponent = new ClassReference();
+			var compInstance:UIComponent;
+			
+			// Specific handling for date- prevents issues with the DateField's auto correction (Mantis 11155)
+			if (component.localName() == "DateField"){
+				compInstance = new ConsistentDateField();
+			} else {
+				var componentName:String = component.@compPackage + component.localName();
+				var ClassReference:Class = getDefinitionByName(componentName) as Class;
+				compInstance = new ClassReference();
+			}
+			
 			//!setting the context param should be here, we will need it to set the dataArray property
 			if (component.@id == CustomMetadataConstantTypes.ENTRY_LINK_TABLE) {
 				compInstance["context"] = _model.context;
@@ -306,7 +315,8 @@ package com.kaltura.kmc.modules.content.utils {
 
 				//if this is the attribute we added, we will assign the proper object to it
 				if (attrName == component.@metadataData) {
-					compInstance[attrName] = getSuitableValue(attrValue, component.@dataType);
+					var sValue:Object = getSuitableValue(attrValue, component.@dataType)
+					compInstance[attrName] = sValue;
 				}
 				else if (attrName == "dataProvider") {
 					compInstance[attrName] = attrValue.split(",");

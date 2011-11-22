@@ -171,6 +171,7 @@
 			 * stop KDP if it happens to be playing
 			 * */
 			private function hideHandler(event:FlexEvent):void {
+				if (context.debugMode) trace("request KDP.doStop");
 				_kdp["sendNotification"](KdpEventTypes.DO_STOP);
 			}
 
@@ -182,6 +183,7 @@
 					_kdp.removeEventListener(KdpEventTypes.PLAYER_PAUSED, handleKdpEvents, false);
 					_kdp.removeEventListener(KdpEventTypes.PLAYER_PLAY_END, handleKdpEvents, false);
 					_kdp.removeEventListener(KdpEventTypes.DO_SEEK, handleKdpEvents, false);
+					if (context.debugMode) trace("request KDP.doStop");
 					_kdp["sendNotification"](KdpEventTypes.DO_STOP);
 				}
 				if (_kClip) {
@@ -257,6 +259,7 @@
 				else {
 					if (setEntryId && _kClip["isReady"]()) {
 						_kClipReady = false;
+						if (context.debugMode) 	trace("request KCLIP.setEntryId, ", selectedEntry.id);
 						_kClip["setEntryId"](selectedEntry.id);
 					}
 				}
@@ -284,6 +287,7 @@
 							kdpHolder.addChild(kdpLoader);
 						}
 						if (setEntryId) {
+							if (context.debugMode) trace("request KDP.changeMedia, ", selectedEntry.id);
 							_kdp["sendNotification"](KdpEventTypes.CHANGE_MEDIA, {entryId: selectedEntry.id});
 							_kdpFirstPlayed = false;
 						}
@@ -536,6 +540,7 @@
 						break;
 					case KClipEventTypes.ZOOM_CHANGED:
 						// pause KDP
+						if (context.debugMode) trace("request KDP.doPause");
 						_kdp["sendNotification"](KdpEventTypes.DO_PAUSE);
 						break;
 				}
@@ -616,6 +621,7 @@
 							_kdpFirstPlayed = true;
 							if (_kClipInitiatedPlay) {
 								// if kclip initiated, doPause
+								if (context.debugMode) trace("request KDP.doPause");
 								_kdp["sendNotification"](KdpEventTypes.DO_PAUSE);
 								_kClipInitiatedPlay = false;
 							}
@@ -623,6 +629,7 @@
 						break;
 					case KdpEventTypes.PLAYER_PAUSED:
 					case KdpEventTypes.PLAYER_PLAY_END:
+						if (context.debugMode) trace("requesting KCLIP.scrollToPoint, ", _playheadPosition);
 						_kClip["scrollToPoint"](_playheadPosition/* , true */);
 						_kdp.removeEventListener(KdpEventTypes.PLAYER_UPDATE_PLAYHEAD, handleKdpEvents, false);
 						_kClip.addEventListener(KClipEventTypes.PLAYHEAD_UPDATED, handleKClipEvents, false, 0, true);
@@ -632,7 +639,9 @@
 							if (_kdpInitiatedUpdate)  {
 								if (!isNaN(parseFloat(e["data"]))) {
 									// when seeking in KDP we want kClip to load images.
-									_kClip["scrollToPoint"](parseFloat(e["data"]) * 1000/* , true */);
+									_playheadPosition = parseFloat(e["data"]) * 1000;
+									if (context.debugMode) trace("requesting KCLIP.scrollToPoint, ", _playheadPosition);
+									_kClip["scrollToPoint"](_playheadPosition/* , true */);
 								}
 							}
 							else {
@@ -646,6 +655,7 @@
 								// we only listen to playhead update while in "play" mode, 
 								// and in this case we don't want kClip to load images.
 								_playheadPosition = parseFloat(e["data"]) * 1000;
+								if (context.debugMode) trace("requesting KCLIP.scrollToPoint, ", _playheadPosition);
 								_kClip["scrollToPoint"](_playheadPosition/* , false */);
 							}
 						}
@@ -663,12 +673,15 @@
 				if (_kdp) {
 					if (_kdpFirstPlayed) {
 						// kdp played before. just seek
+						if (context.debugMode) trace("request KDP.doSeek, ", n);
 						_kdp["sendNotification"](KdpEventTypes.DO_SEEK, n);
 					}
 					else {
 						// cause first play
 						_kClipInitiatedPlay = true;
+						if (context.debugMode) trace("request KDP.mediaProxy.mediaPlayFrom = ", n);
 						_kdp["setAttribute"]("mediaProxy", "mediaPlayFrom", n);
+						if (context.debugMode) trace("request KDP.doPlay");
 						_kdp["sendNotification"](KdpEventTypes.DO_PLAY);
 					}
 				}
@@ -703,6 +716,7 @@
 					_selectedCuePoint.endTime = _selectedCuePoint.startTime + teDuration.getTimeAsSeconds() * 1000;
 				}
 				// update
+				if (context.debugMode) trace("requesting KCLIP.updateCuePoint, ", _selectedCuePoint.startTime);
 				_kClip["updateCuePoint"](_selectedCuePoint);
 			}
 
@@ -982,6 +996,7 @@
 			 * */
 			protected function kClipHolder_mouseDownHandler(event:MouseEvent):void {
 				if (_kdp.hasEventListener(KdpEventTypes.PLAYER_UPDATE_PLAYHEAD)) {
+					if (context.debugMode) trace("request KDP.doPause");
 					_kdp["sendNotification"](KdpEventTypes.DO_PAUSE);
 				}
 			}
