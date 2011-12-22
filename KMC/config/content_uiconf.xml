@@ -1,0 +1,24 @@
+<root>
+	<locale>
+		<path>locale/{locale}/content_{locale}_ResourceModule.swf</path>
+		<language>en_US</language>
+	</locale>
+	<uiconf>
+		<kdp>
+			<moderation>@@ModerationUIConfID@@</moderation>
+			<drilldown>@@KdpDrilldownForContentUIConfID@@</drilldown>
+			<captureThumbnail>@@KdpCaptureThumbnailForContentUIConfID@@</captureThumbnail>
+		</kdp>
+		<metadata>@@MetadataUIConfID@@</metadata>
+		<kclip>
+			<ads>@@KClipAdsDrillDownUIConfID@@</ads>
+		</kclip>
+		<!--<entryDrilldown>
+			<mixesTab>false</mixesTab>
+		</entryDrilldown>-->
+	</uiconf>
+	<!-- bulkupload sample files -->
+	<bulkupload>/content/docs/kaltura_batch_upload_eagle.zip</bulkupload>
+	<!-- cueopints sample -->
+	<cuepoints>/content/docs/xml/adCuePointSampleFile.xml</cuepoints>
+</root>
