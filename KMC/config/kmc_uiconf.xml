@@ -1,0 +1,46 @@
+<root>
+	<!-- path to skin file -->
+	<skinPath>assets/kmc_skin.swf</skinPath>
+	<!-- path to help page -->
+	<helpPage>/kmc5help.html</helpPage>
+	<locale>
+		<path>locale/{locale}/kmc_{locale}_ResourceModule.swf</path>
+		<language>en_US</language>
+	</locale>
+	<upload>
+		<!-- number of concurrent uploads -->
+		<concurrent>2</concurrent>
+		<!-- max size of single file in MB -->
+		<maxSize>2047</maxSize>
+	</upload>
+	<modules>
+		<module id="dashboard" displayName="Dashboard" subtab="" uiconf="@@DashboardUIConfID@@"
+				path="modules/Dashboard.swf"/>
+		<module id="content" displayName="Content" subtab="manage" uiconf="@@ContentUIConfID@@"
+				path="modules/Content.swf"/>
+		<module id="studio" displayName="Studio" subtab="playersList" uiconf="@@StudioUIConfID@@"
+				path="modules/Studio.swf"/>
+		<module id="analytics" displayName="Analytics" subtab="usageTabTitle" uiconf="@@AnalyticsUIConfID@@"
+				path="modules/Analytics.swf"/>
+		<module id="account" displayName="Settings" subtab="overview" uiconf="@@AccountUIConfID@@"
+				path="modules/Account.swf"/>
+		<module id="admin" displayName="Administration" subtab="users" uiconf="@@AdminUIConfID@@"
+				path="modules/Administration.swf"/>
+		<!--module id="testMe" displayName="Test Me" subtab="" htmlUrl="/api_v3/testme/index.php"/-->
+		<module id="add" displayName="Upload" subtab="" kmcFunction="addCode.togglePanel"/>
+	</modules>
+	<plugins>
+		<!-- all attributes on the plugin node are passed to the plugin as vars (plugin[att] = plugin.@att) -->
+		<plugin id="addCode" path="modules/AddEntryPanel.swf" dependencies="add"
+				samplesUrl="/content/docs/kaltura_batch_upload_eagle.zip">
+			<!-- hierarchical data can be passed in the "config" node (plugin["config"] = plugin.config[0]). 
+				This is better than loading extra uiconfs, if not really necessary -->
+			<config>
+				<!-- "name" is first searched in locale, and if not available shown as is -->
+				<filter name="video_files" ext="*.flv;*.asf;*.qt;*.mov;*.mpg;*.avi;*.wmv;*.mp4;*.3gp;*.f4v;*.m4v;*.mpeg;*.mxf;*.rm;*.rv;*.rmvb;*.ts;*.ogg;*.ogv"/>
+				<filter name="audio_files" ext="*.flv;*.asf;*.qt;*.mov;*.mpg;*.avi;*.wmv;*.mp3;*.wav;*.ra;*.rm"/>
+				<filter name="image_files" ext="*.jpg;*.jpeg;*.gif;*.png"/>
+			</config>
+		</plugin>
+	</plugins>
+</root>
