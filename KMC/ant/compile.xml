@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<project name="KMC Compiler" basedir="./.." default="build">
+	
+	<!-- path to Flex SDK -->
+    <property name="FLEX_HOME" value="C:/Program Files/Adobe/Adobe Flash Builder 4/sdks/3.5.0"/>
+	
+	<!-- directory for the compiled swf -->
+    <property name="DEPLOY_DIR" value="${basedir}/bin-release"/>
+	
+	<property name="KMC_VERSION" value="v4.2.18"/>
+	<property name="KDP_VERSION" value="v3.5.53"/>
+	<property name="KCLIP_VERSION" value="v1.1.2"/>
+	
+	<!-- include flex tasks -->
+	<taskdef resource="flexTasks.tasks" classpath="${FLEX_HOME}/ant/lib/flexTasks.jar" />
+	
+	<target name="build" description="general build" depends="clean, init, compile_locales, compile, pack">
+		
+		<length property="length" mode="each">
+		    <fileset dir="${basedir}/../${KMC_VERSION}" >
+				<exclude name="**/locale/**"/>
+				<include name="**/*.swf"/>
+			</fileset>
+		</length>
+		<echo>${length}</echo>
+
+		
+		<echo>WOOHOO! KMC is ready!</echo>
+	</target>
+	
+	
+	<target name="create_keys_locale" description="set 'keys' locale files" >
+		<ant antfile="ant/generateKeysLocaleSources.xml" target="build" /> 
+	</target>
+		
+	<target name="compile_locales" description="compile locale files" depends="create_keys_locale">
+		<ant antfile="ant/compileLocale.xml" target="build">
+			<property name="LANGUAGE" value="en_US"/>
+		</ant> 
+		<ant antfile="ant/compileLocale.xml" target="build">
+			<property name="LANGUAGE" value="ja_JP"/>
+		</ant> 
+		<ant antfile="ant/compileLocale.xml" target="build">
+			<property name="LANGUAGE" value="keys"/>
+		</ant> 
+	</target>
+	
+	<target name="compile" description="compile release build of KMC">
+		<fb.exportReleaseBuild project="KMC" /> 
+		<echo>KMC release build created</echo>
+	</target>
+			
+	<target name="pack" description="copy all version files to version folder">
+		<ant antfile="ant/packVersion.xml" target="build" >
+			<property name="PACK_SOURCE_DIR" value="${DEPLOY_DIR}"/>
+		</ant>
+	</target>
+	
+	
+	<target name="clean" description="delete old files">
+        <delete failonerror="false">
+            <fileset dir="${DEPLOY_DIR}" includes="**/*"/>
+        </delete>
+    </target>
+	
+	
+	<target name="init">
+		<mkdir dir="${DEPLOY_DIR}" description="Make sure there is a bin directory"/>
+	</target>
+	
+	<target name="fun" unless="fun.done">
+		<sound>
+			<success source="C:/WINDOWS/media/tada.wav"/>
+			<fail source="C:/WINDOWS/media"/>
+		</sound>
+		<property name="fun.done" value="true"/>
+	</target>
+	
+</project>
+
