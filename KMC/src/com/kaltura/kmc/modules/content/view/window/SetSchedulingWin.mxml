@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<HelpTitleWindow xmlns="com.kaltura.containers.*" layout="vertical"
+				 title="{resourceManager.getString('cms', 'setSchedulingTitle')}"
+				 xmlns:mx="http://www.adobe.com/2006/mxml" showCloseButton="true" close="closeWindow(event)"
+				 help="onHelp(event)" xmlns:view="com.kaltura.edw.view.*">
+
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.analytics.GoogleAnalyticsConsts;
+			import com.kaltura.analytics.GoogleAnalyticsTracker;
+			import com.kaltura.analytics.KAnalyticsTracker;
+			import com.kaltura.analytics.KAnalyticsTrackerConsts;
+			import com.kaltura.edw.business.Cloner;
+			import com.kaltura.edw.business.IDrilldownPanel;
+			import com.kaltura.edw.constants.PanelConsts;
+			import com.kaltura.edw.model.util.CompositeKBaseEntry;
+			import com.kaltura.edw.view.panels.PanelLoader;
+			import com.kaltura.kmc.events.KmcHelpEvent;
+			import com.kaltura.kmc.modules.content.events.EntriesEvent;
+			import com.kaltura.kmc.modules.content.events.WindowEvent;
+			import com.kaltura.types.KalturaStatsKmcEventType;
+			import com.kaltura.vo.KalturaBaseEntry;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+
+			/**
+			 * @copy #selectedEntries
+			 * */
+			private var _selectedEntries:ArrayCollection;
+
+			
+			private var _entryShec:IDrilldownPanel;
+			private var _clonedSelectedEntries:ArrayCollection;
+			
+			/**
+			 * close the window
+			 * */
+			private function closeWindow(event:Event = null):void {
+				var cgEvent:WindowEvent = new WindowEvent(WindowEvent.CLOSE);
+				cgEvent.dispatch();
+			}
+
+
+			/**
+			 * save the changes:
+			 * */
+			private function saveData(event:Event):void {
+				if (_entryShec != null){
+
+					// update entries:
+					var cgEvent:EntriesEvent = new EntriesEvent(EntriesEvent.UPDATE_ENTRIES, _clonedSelectedEntries, false);
+					cgEvent.dispatch();
+	
+					// stats:
+					for each (var etr:Object in _clonedSelectedEntries) {
+						KAnalyticsTracker.getInstance().sendEvent(KAnalyticsTrackerConsts.CONTENT, KalturaStatsKmcEventType.CONTENT_EDIT_ENTRY, "setSchedulingForEntries", etr.id);
+					}
+					GoogleAnalyticsTracker.getInstance().sendToGA(GoogleAnalyticsConsts.CONTENT_SET_SCHEDULING, GoogleAnalyticsConsts.CONTENT);
+				}
+				closeWindow();
+			}
+			
+			override protected function createChildren():void{
+				super.createChildren();
+				
+				PanelLoader.instance.createPanel(PanelConsts.SCHEDULING_PANEL, onPanelCreated);
+			}
+			
+			protected function onHelp(event:Event):void {
+				dispatchEvent(new KmcHelpEvent(KmcHelpEvent.HELP, 'section123'));
+			}
+
+
+			/**
+			 * a list of entries to edit
+			 * */
+			public function set selectedEntries(arr:ArrayCollection):void {
+				_selectedEntries = arr;
+			}
+			
+			private function onPanelCreated(panel:IDrilldownPanel):void	{
+				_entryShec = panel;
+				_entryShec.init();
+				addEventListener(FlexEvent.UPDATE_COMPLETE, onUpdateComplete);
+				
+				addChildAt(_entryShec as DisplayObject, 1);
+			}
+			
+			protected function onUpdateComplete(event:FlexEvent):void{
+				removeEventListener(FlexEvent.UPDATE_COMPLETE, onUpdateComplete);
+				
+				// we edit dummy entries, not the original 
+				_clonedSelectedEntries = new ArrayCollection();
+				for (var i:int = 0; i < _selectedEntries.length; i++) {
+					_clonedSelectedEntries.addItem(Cloner.cloneKalturaBaseEntry(_selectedEntries[i]));
+				}
+				
+				var entryVect:Vector.<KalturaBaseEntry> = Vector.<KalturaBaseEntry>(_clonedSelectedEntries.source);
+				var compositeEntry:CompositeKBaseEntry = new CompositeKBaseEntry(entryVect);
+				
+				_entryShec.selectedEntry = compositeEntry;
+				
+				_entryShec.initData();
+			}
+			
+		]]>
+	</mx:Script>
+	<mx:Label text="{resourceManager.getString('cms', 'schedulingOverrideMsg')}"/>
+	<!-- view:EntryScheduling id="entryShec" currentState="{EntryScheduling.POP_UP_MODE}"/ -->
+	<mx:ControlBar width="100%" horizontalAlign="center" paddingBottom="2" paddingLeft="2" paddingRight="2"
+				   paddingTop="2">
+		<mx:Button label="{resourceManager.getString('cms', 'applySechdulingBtn')}" useHandCursor="true"
+				   buttonMode="true" click="saveData(event)"/>
+	</mx:ControlBar>
+</HelpTitleWindow>
