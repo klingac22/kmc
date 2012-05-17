@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<base:SelectionItemBase xmlns:mx="http://www.adobe.com/2006/mxml"
+						xmlns:base="com.kaltura.autocomplete.itemRenderers.selection.base.*"
+						xmlns:classes="com.hillelcoren.components.autoComplete.classes.*"
+						toolTipCreate="selectionitembase1_toolTipCreateHandler(event)" toolTip=" ">
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.autocomplete.itemRenderers.selection.utils.CategoryToolTip;
+			import com.kaltura.types.KalturaAppearInListType;
+			import com.kaltura.types.KalturaPrivacyType;
+			import com.kaltura.vo.KalturaCategory;
+			
+			import mx.events.ToolTipEvent;
+			import mx.managers.ToolTipManager;
+			override protected function initButtonsHook():void{
+//				button.addEventListener(Mouse
+			}
+			
+			protected function selectionitembase1_toolTipCreateHandler(event:ToolTipEvent):void
+			{
+				var category:KalturaCategory = _item as KalturaCategory;
+				var customTip:CategoryToolTip = new CategoryToolTip();
+				customTip.fullPath = category.fullName;
+				
+				switch (category.privacy){
+					case KalturaPrivacyType.ALL:
+						customTip.access = resourceManager.getString('autocomplete', 'accessPublic');
+						break;
+					case KalturaPrivacyType.AUTHENTICATED_USERS:
+						customTip.access = resourceManager.getString('autocomplete', 'accessAuthorized');
+						break;
+					case KalturaPrivacyType.MEMBERS_ONLY:
+						customTip.access = resourceManager.getString('autocomplete', 'accessAuthorized');
+						break;
+				}
+				
+				customTip.hasMembers = category.membersCount != 0 ? resourceManager.getString('autocomplete', 'hasMembers') : resourceManager.getString('autocomplete', 'noMembers');
+				switch (category.appearInList){
+					case KalturaAppearInListType.CATEGORY_MEMBERS_ONLY:
+						customTip.isListed = resourceManager.getString('autocomplete', 'categoryListed');
+						break;
+					case KalturaAppearInListType.PARTNER_ONLY:
+						customTip.isListed = resourceManager.getString('autocomplete', 'categoryUnlisted');
+						break;
+				}
+				
+				event.toolTip = customTip;
+			}
+			
+		]]>
+	</mx:Script>
+	<classes:ShorterTextInput id="textInput" />
+	<classes:IconButton id="button"/>
+	<mx:Spacer id="spacer"/>
+</base:SelectionItemBase>
