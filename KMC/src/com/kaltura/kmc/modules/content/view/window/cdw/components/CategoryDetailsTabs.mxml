@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:tabbar="com.kaltura.controls.tabbar.*"
+		 xmlns:categoryTabs="com.kaltura.kmc.modules.content.view.window.cdw.components.categoryTabs.*"
+		 horizontalAlign="center" styleName="noPadding" creationComplete="creationCompleteHandler(event)">
+	<mx:Metadata>
+		[Event(name="save",type="flash.events.Event")]
+		[Event(name="close",type="flash.events.Event")]
+		[Event(name="gotoNext",type="flash.events.Event")]
+		[Event(name="gotoPrev",type="flash.events.Event")]
+	</mx:Metadata>
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.edw.business.permissions.PermissionManager;
+			import com.kaltura.edw.model.FilterModel;
+			import com.kaltura.kmc.modules.content.model.CategoriesModel;
+			import com.kaltura.kmc.modules.content.view.window.cdw.ICategoryDrilldownPanel;
+			import com.kaltura.vo.KalturaCategory;
+			
+			import flash.utils.setTimeout;
+			
+			import mx.events.FlexEvent;
+
+			public static const SAVE_EVENT:String = "save";
+			public static const CLOSE_EVENT:String = "close";
+			public static const GOTO_NEXT_EVENT:String = "gotoNext";
+			public static const GOTO_PREV_EVENT:String = "gotoPrev";
+
+			[Bindable]
+			public var filterModel:FilterModel;
+
+			[Bindable]
+			public var model:CategoriesModel;
+
+			public var isNewCategory:Boolean;
+
+			private var _category:KalturaCategory;
+
+			private var _tabs:Vector.<ICategoryDrilldownPanel>;
+
+			/**
+			 * RnP
+			 * */
+			public var showEndUsersTab:Boolean = true;
+
+			
+			public function get helpAnchor():String {
+				switch (viewStack.selectedChild) {
+					case metadata:
+						return 'section_category_metadata';
+						break;
+					case endUsers:
+						return 'section_category_users';
+						break;
+					case subCategories:
+						return 'section_category_subcats';
+						break;
+				}
+				return null;
+			}
+			
+			public function validate():Boolean {
+				
+				var tab:ICategoryDrilldownPanel;
+				for (var i:int = 0; i<viewStack.numChildren; i++) {
+					tab = viewStack.getChildAt(i) as ICategoryDrilldownPanel;
+					if (!tab.validate()) {
+						return false;
+					}
+				}
+				return true;
+			}
+
+
+			public function save():void {
+				var tab:ICategoryDrilldownPanel;
+				for (var i:int = 0; i<viewStack.numChildren; i++) {
+					tab = viewStack.getChildAt(i) as ICategoryDrilldownPanel;
+					tab.save();
+				}
+			}
+
+
+			private function onCreationComplete(event:FlexEvent):void {
+				PermissionManager.getInstance().applyAllAttributes(this, "categoryDrilldown");
+				if (isNewCategory) {
+					viewStack.removeChild(subCategories);
+				}
+				if (!showEndUsersTab) {
+					// assuming permission manager ran before, remove 
+					// endUsers tab so it won't be added to _tabs
+					viewStack.removeChild(endUsers);
+				}
+
+				_tabs = new Vector.<ICategoryDrilldownPanel>;
+				for (var index:int = viewStack.numChildren-1; index >= 0; index--) {
+					// some tabs remove themselves on initData, so we need to run from the top down
+					var tab:ICategoryDrilldownPanel = viewStack.getChildAt(index) as ICategoryDrilldownPanel;
+					_tabs.unshift(tab); // add in reverse order
+					tab.init();
+					if (_category != null) {
+						tab.initData();
+					}
+				}
+			}
+
+
+			public function isChanged():Boolean {
+				for each (var tab:ICategoryDrilldownPanel in _tabs) {
+					if (tab.isChanged()) {
+						return true;
+					}
+				}
+
+				return false;
+			}
+
+			
+			private function initTabsData(refreshView:Boolean):void {
+				for each (var tab:ICategoryDrilldownPanel in _tabs) {
+					if (refreshView) {
+						viewStack.addChild(tab as DisplayObject);
+					}
+					tab.initData();
+				}
+			}
+			
+			
+
+			
+			[Bindable]
+			public function set category(value:KalturaCategory):void {
+				var refreshView:Boolean = !_category || value.id != _category.id;
+				_category = value;
+				
+				if (_tabs != null) {
+					// need to clear the stack trace so the new category will be updated on the panels 
+					setTimeout(initTabsData, 0, refreshView);
+				}
+			}
+
+
+			public function get category():KalturaCategory {
+				return _category;
+			}
+
+
+			public function clear():void {
+				for each (var tab:ICategoryDrilldownPanel in _tabs) {
+					tab.clear();
+				}
+			}
+
+
+			public function destroy():void {
+				for each (var tab:ICategoryDrilldownPanel in _tabs) {
+					tab.destroy();
+				}
+			}
+
+			private function creationCompleteHandler(event:FlexEvent):void
+			{
+				PermissionManager.getInstance().applyAllAttributes(this, "categoryDrilldown");
+			}
+
+		]]>
+	</mx:Script>
+	<mx:HBox width="100%" height="100%" styleName="categoryDetails">
+		<mx:TabBar id="tabBar" width="140" dataProvider="{viewStack}" direction="vertical" styleName="dtn"
+				   useHandCursor="true" buttonMode="true" tabHeight="25" enabled="{!model.loadingFlag}"/>
+
+		<mx:ViewStack id="viewStack" width="100%" height="100%" creationPolicy="all"
+					  creationComplete="onCreationComplete(event)" styleName="sectionViewStack"
+					  selectedIndex="{tabBar.selectedIndex}">
+			<categoryTabs:CategoryMetadata id="metadata" label="{resourceManager.getString('cms', 'categoryMetadata')}" width="100%"
+										   height="100%" category="{category}" filterModel="{filterModel}"
+										   model="{model}"/>
+			<categoryTabs:CategoryEndUserAccess id="endUsers" width="100%" height="100%" 
+												label="{resourceManager.getString('cms', 'endUserAccess')}"
+												category="{category}" model="{model}" />
+			<categoryTabs:SubCategories id="subCategories" width="100%" height="100%"
+										subCategories="{model.subCategories}"
+										label="{resourceManager.getString('cms', 'categorySubCategories')}"/>
+
+		</mx:ViewStack>
+	</mx:HBox>
+
+</mx:VBox>
