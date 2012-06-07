@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:cat="com.kaltura.edw.components.fltr.cat.*">
+	<mx:Metadata>
+		[Event(name="change",type="flash.events.Event")]
+	</mx:Metadata>
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.edw.components.fltr.FilterComponentEvent;
+			import com.kaltura.edw.components.fltr.cat.CatTreeSelectionMode;
+			import com.kaltura.edw.events.KedDataEvent;
+			import com.kaltura.edw.model.FilterModel;
+			import com.kaltura.edw.vo.CategoryVO;
+			import com.kaltura.vo.KalturaCategory;
+			
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			
+			[Bindable]
+			private var _filterModel:FilterModel;
+			
+			
+			public function get filterModel():FilterModel {
+				return _filterModel;
+			}
+			
+			public function set filterModel(value:FilterModel):void {
+				_filterModel = value;
+			}
+			
+			private function onClose(event:CloseEvent):void{
+				dispatchEvent(new KedDataEvent(KedDataEvent.CLOSE_WINDOW));
+			}
+			
+			private function onParentCategorySelected(event:FilterComponentEvent):void {
+				if (catTree.selectedItem != null){
+					nextBtn.enabled = true;
+					none.selected = false;
+				}
+			}
+			
+			protected function none_clickHandler(event:MouseEvent):void {
+				catTree.clearSelection();
+				nextBtn.enabled = true;
+			}
+			
+			public function get selectedCategory():KalturaCategory {
+				var kCat:KalturaCategory;
+				if (none.selected) {
+					kCat = new KalturaCategory();
+					kCat.id = 0;
+				}
+				else {
+					kCat = (catTree.selectedItem as CategoryVO).category;
+				}
+				return kCat;
+			}
+		]]>
+	</mx:Script>
+	
+	<mx:Label text="{resourceManager.getString('cms', 'selectParentCategory')}" />
+	<mx:RadioButton id="none" label="{resourceManager.getString('cms', 'noParentLbl')}" click="none_clickHandler(event)"/>
+	<mx:HRule width="90%" />
+	<cat:CatTree id="catTree" width="100%" height="100%" selectionMode="{CatTreeSelectionMode.SINGLE_SELECT}"
+				 categories="{_filterModel.categoriesMap}" dataProvider="{_filterModel.categories}" 
+				 chunkedData="{_filterModel.chunkedCategoriesLoad}" styleName="categoriesTree" 
+				 valueChange="onParentCategorySelected(event)" />
+	
+	<mx:Button id="nextBtn" label="{resourceManager.getString('cms', 'selectParentCategoryNext')}" enabled="false" click="{dispatchEvent(new Event(Event.CHANGE))}"/>
+</mx:VBox>
