@@ -131,7 +131,7 @@
 				}
 				kdp3Loader.scaleContent = false;
 				kdp3Loader.trustContent = true;
-				kdp3Loader.loaderContext = new LoaderContext(true, new ApplicationDomain(), SecurityDomain.currentDomain);
+				kdp3Loader.loaderContext = new LoaderContext(true, new ApplicationDomain()/* , SecurityDomain.currentDomain */); // DON'T use security domain here, it gets KDP confused when loading plugins via CDN.
 				// if we don't set size here wierd things happen.
 				kdp3Loader.width = kdpWidth.value;
 				kdp3Loader.height = kdpHeight.value;
