@@ -57,7 +57,7 @@
 			/**
 			 * KMC version
 			 * */
-			public var VERSION:String = "5.20.3";
+			public var VERSION:String = "5.20.4";
 
 			// ==============================================================================
 			// members
