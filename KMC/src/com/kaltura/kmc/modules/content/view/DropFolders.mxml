@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!---
+"Drop Folders" section of content viewstack. Displays all files in drop folders.
+-->
+<mx:VBox xmlns:mx="http://www.adobe.com/2006/mxml" 
+		 implements="com.kaltura.kmc.modules.content.business.IContentPanel"
+		 xmlns:controls="com.kaltura.controls.*"
+		 creationComplete="creationCompleteHandler(event)"
+		 width="100%" height="100%" xmlns:filter2="com.kaltura.edw.components.filter.*" xmlns:fltr="com.kaltura.edw.components.fltr.*" xmlns:indicators="com.kaltura.edw.components.fltr.indicators.*" xmlns:dropfolder="com.kaltura.kmc.modules.content.view.dropfolder.*">
+	<mx:Metadata>
+		[ResourceBundle("dropfolders")]
+	</mx:Metadata>
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.kmc.modules.content.utils.DropFolderTableStringUtil;
+			import com.kaltura.edw.control.events.KedEntryEvent;
+			import com.kaltura.edw.control.DataTabController;
+			import com.kaltura.edw.control.events.ModelEvent;
+			import com.kaltura.edw.control.KedController;
+			import com.kaltura.kmvc.control.KMvCEvent;
+			import com.kaltura.kmc.modules.content.view.itemrenderers.dropfolders.EntryIdRenderer;
+			import com.kaltura.edw.business.permissions.PermissionManager;
+			import com.kaltura.kmc.modules.content.model.DropFolderModel;
+			import com.kaltura.edw.model.types.DropFolderListType;
+			import com.kaltura.kmc.modules.content.events.KMCDropFolderEvent;
+			import com.kaltura.types.KalturaDropFolderFileErrorCode;
+			import com.kaltura.types.KalturaDropFolderFileStatus;
+			import com.kaltura.vo.KalturaBaseEntryFilter;
+			import com.kaltura.vo.KalturaDropFolder;
+			import com.kaltura.vo.KalturaDropFolderFile;
+			import com.kaltura.vo.KalturaDropFolderFileFilter;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.CollectionEvent;
+			import mx.events.FlexEvent;
+			import mx.formatters.DateFormatter;
+			
+			
+			[Bindable]
+			public var dropFolderModel:DropFolderModel;
+	
+			/**
+			 * @inheritDoc
+			 * */
+			public function init(kbef:KalturaBaseEntryFilter = null):void {
+				refreshList(null);
+			}
+			
+			/**
+			 * refresh page data
+			 * */
+			private function refreshList(event:Event):void {
+				// only get files from the folders that return in the folders list
+				var listFoldersEvent:KMCDropFolderEvent = new KMCDropFolderEvent(KMCDropFolderEvent.LIST_FOLDERS_AND_FILES, null, DropFolderListType.ADD_NEW|DropFolderListType.MATCH_OR_KEEP|DropFolderListType.MATCH_OR_NEW|DropFolderListType.XML_FOLDER);
+				if (event) {
+					listFoldersEvent.data = dropFolderModel.filter;
+				}
+				listFoldersEvent.dispatch();
+			}
+			
+			private function newSearchFromFilter():void {
+				paging.selectedPage = 1;
+				loadDropFolderFiles();
+			}
+			
+			/**
+			 * Create suitable string to display in the "Folder Name" column
+			 * */
+			private function folderNameFunc(item:Object, column:DataGridColumn): String {
+				var curFile:KalturaDropFolderFile = item as KalturaDropFolderFile;
+				
+				for each (var folder:KalturaDropFolder in dropFolderModel.dropFolders) {
+					if (curFile.dropFolderId == folder.id) {
+						return folder.name;
+					}
+				}
+				
+				return '';
+			}
+			
+			
+			
+			/**
+			 * user selects to delete files
+			 * */
+			private function deleteFiles():void {
+				if (!dg.selectedItem) {
+					Alert.show(resourceManager.getString('dropfolders', 'selectDropFolderFiles'), resourceManager.getString('dropfolders', 'selectDropFolderFilesTitle'));
+					return;
+				}
+				
+				var delStr:String = '';
+				for each (var item:Object in dg.selectedItems) {
+					delStr += '\n' + (item as KalturaDropFolderFile).fileName;
+				}
+				
+				Alert.show(resourceManager.getString('dropfolders', 'deleteDropFoldersFilesQ') + delStr, resourceManager.getString('dropfolders', 'deleteDropFolderFileTitle'), Alert.YES | Alert.NO, null, deleteResponseFunc);
+			}
+			
+			private function deleteResponseFunc(event:CloseEvent):void {
+				if (event.detail == Alert.YES) {
+					var deleteArray:Array = new Array;
+					for each (var item:Object in dg.selectedItems) {
+						deleteArray.push(item);
+					}
+					
+					var deleteEvent:KMCDropFolderEvent = new KMCDropFolderEvent(KMCDropFolderEvent.DELETE_FILES);
+					deleteEvent.data = deleteArray;
+					deleteEvent.dispatch();
+				}
+			}
+
+			/**
+			 * selects all items in the page
+			 * */
+			private function selectAllTable():void {
+				dg.selectedItems = (dg.dataProvider as ArrayCollection).source;
+			}
+			
+			/**
+			 * deselect all items
+			 * */
+			private function deSelectAllTable():void {
+				dg.selectedItems = new Array();
+			}		
+			
+			/**
+			 * paging
+			 * */
+		 	private function gotoPage():void {
+				// update filter here
+				loadDropFolderFiles();
+			}
+			
+			private function loadDropFolderFiles():void {
+				if (paging) {	
+					if (paging.pageSize == 10) {
+						dg.rowCount = 10;
+						topContainer.height = (dg.rowHeight * 10) + dg.headerHeight + 10 + paging.height + bottomActionBox.height;
+					}
+					else {
+						topContainer.percentHeight = 100;
+						dg.rowCount = -1;
+					}
+					
+					dropFolderModel.pager = paging.kalturaFilterPager;
+				}
+				
+				if (filter) {
+					var dfFilter:KalturaDropFolderFileFilter = filter.kalturaFilter as KalturaDropFolderFileFilter;
+					if (dfFilter.dropFolderIdEqual == int.MIN_VALUE && !dfFilter.dropFolderIdIn) {
+						dfFilter.dropFolderIdIn = getEnabledFolderIds();
+					}
+					if (!dfFilter.statusIn && dfFilter.statusEqual == int.MIN_VALUE) {
+						dfFilter.statusIn = KalturaDropFolderFileStatus.DOWNLOADING + "," +
+							KalturaDropFolderFileStatus.ERROR_DELETING + "," + 
+							KalturaDropFolderFileStatus.ERROR_DOWNLOADING + "," + 
+							KalturaDropFolderFileStatus.ERROR_HANDLING + "," + 
+							KalturaDropFolderFileStatus.HANDLED + "," + 
+							KalturaDropFolderFileStatus.NO_MATCH + "," + 
+							KalturaDropFolderFileStatus.PENDING + "," + 
+							KalturaDropFolderFileStatus.PROCESSING + "," + 
+							KalturaDropFolderFileStatus.PARSED + "," + 
+							KalturaDropFolderFileStatus.UPLOADING + "," + 
+							KalturaDropFolderFileStatus.WAITING;
+					}
+					dropFolderModel.filter = dfFilter;
+				}
+
+				var listFiles:KMCDropFolderEvent = new KMCDropFolderEvent(KMCDropFolderEvent.LIST_ALL_FILES);
+				listFiles.dispatch();
+			} 
+			
+			
+			/**
+			 * get the ids of the folders that show in the filter, 
+			 * whilch are supposed to be tha partner's enabled folders
+			 * */
+			private function getEnabledFolderIds():String {
+				var str:String = '';
+				for each (var kdf:KalturaDropFolder in dropFolderModel.dropFolders) {
+					str += kdf.id + ",";
+				}
+				return str;
+			}
+			
+			private function setSortIndicator(event:CollectionEvent = null):void {
+				var ar:Array = dg.columns;
+				var i:int;
+				for (i = 0; i<dg.columnCount; i++) {
+					if (ar[i].dataField == "createdAt") {
+						break;
+					}
+				}
+				dg.mx_internal::sortIndex = i;
+				dg.mx_internal::sortDirection = 'DESC';
+			}
+			
+			private function onPagerCreationComplete(event:Event):void {
+				dropFolderModel.pager = paging.kalturaFilterPager;
+				paging.selectedPage = 1;
+				paging.pageSize = paging.rowInPageCb.value as int;
+			}
+			
+
+			protected function creationCompleteHandler(event:FlexEvent):void {
+				PermissionManager.getInstance().applyAllAttributes(this, this.id);
+				dg.addEventListener(CollectionEvent.COLLECTION_CHANGE, setSortIndicator);
+				dg.addEventListener(EntryIdRenderer.ID_CLICKED, openEntryDetails);
+			}
+			
+
+			private function openEntryDetails(event:Event):void {
+				var entryId:String = (event.target.data as KalturaDropFolderFile).entryId;
+				
+				// create the new model 
+				var cg:KMvCEvent = new ModelEvent(ModelEvent.DUPLICATE_ENTRY_DETAILS_MODEL);
+				DataTabController.getInstance().dispatch(cg);
+				cg = new KedEntryEvent(KedEntryEvent.GET_ENTRY_AND_DRILLDOWN, null, entryId);
+				DataTabController.getInstance().dispatch(cg);
+			}
+			
+		]]>
+	</mx:Script>
+	
+	<mx:HBox width="100%" verticalAlign="middle">
+		<mx:Label id="pageLabel" text="{resourceManager.getString('cms', 'dropFoldersTitle')}" styleName="filterTitleHeader" 
+				  width="{filter.width}"/>
+		<fltr:FreeTextSearch id="searchBox" styleName="searchHBox" width="{filter.width}" height="{pageLabel.height}"
+							 attribute="fileNameLike" defaultText="{resourceManager.getString('dropfolders', 'searchFiles')}" />
+		<indicators:Indicators id="indicators" width="100%" height="60"
+							   dataProvider="{filter.indicators}"
+							   boxClicked="filter.removeFilter(event.data)"/>
+		<mx:VBox styleName="noPadding">
+			<mx:LinkButton label="{resourceManager.getString('cms','refresh')}" click="refreshList(event)" styleName="recycleIcon"/>
+			<mx:Label text="{resourceManager.getString('filter', 'indicatorsLabel', [indicators.numExceeded])}" 
+					  visible="{indicators.numExceeded > 0}" styleName="indicatorsLabel"/>
+		</mx:VBox>
+	</mx:HBox>
+	
+	<mx:HDividedBox id="topContainer" width="100%" height="100%" verticalScrollPolicy="off" >
+		<dropfolder:DropFilesFilter id="filter" height="100%" width="245"
+							  freeTextSearch="{searchBox}"
+							  kalturaFilter="{dropFolderModel.filter}"
+							  dropFolders="{dropFolderModel.dropFolders}"
+							  filterChanged="{newSearchFromFilter()}" />
+
+		<mx:VBox id="tableContainer" width="100%" height="100%" verticalScrollPolicy="off" styleName="entriesTablePagerAndButtonsVbox">
+			<mx:DataGrid id="dg" dataProvider="{dropFolderModel.files}" rowCount="10" rowHeight="36" 
+						 width="100%" height="100%" allowMultipleSelection="true" >
+				<mx:columns>
+					<mx:DataGridColumn headerText="{resourceManager.getString('dropfolders','dropFileNameTitle')}" dataField="fileName"/>
+					<mx:DataGridColumn headerText="{resourceManager.getString('dropfolders','dropFolderNameTitle')}" dataField="fileName" 
+									   labelFunction="{folderNameFunc}"/>
+					<mx:DataGridColumn headerText="{resourceManager.getString('dropfolders','dropFileCreatedAtTitle')}" 
+									   labelFunction="{DropFolderTableStringUtil.dateCreatedLabelFunc}" 
+									   dataTipFunction="{DropFolderTableStringUtil.getDatesInfo}" showDataTips="true"/>
+					<mx:DataGridColumn headerText="{resourceManager.getString('dropfolders','dropFileSizeTitle')}" dataField="fileSize" 
+									   labelFunction="{DropFolderTableStringUtil.fileSizeLabelFunc}"/>
+					<mx:DataGridColumn headerText="{resourceManager.getString('dropfolders','dropFileEntryTitle')}" dataField="entryId"
+									   itemRenderer="com.kaltura.kmc.modules.content.view.itemrenderers.dropfolders.EntryIdRenderer"/>
+					<mx:DataGridColumn headerText="{resourceManager.getString('dropfolders','dropFileStatusTitle')}" dataField="status" 
+									   labelFunction="{DropFolderTableStringUtil.statusLabelFunc}" 
+									   dataTipFunction="{DropFolderTableStringUtil.getStatusInfo}" showDataTips="true"/>
+					<mx:DataGridColumn headerText="{resourceManager.getString('dropfolders','dropFileErrTitle')}">
+						<mx:itemRenderer>
+							<mx:Component>
+								<mx:Label text="{DropFolderTableStringUtil.getErrorDescription(data)}" paddingLeft="7">
+									<mx:Script>
+										<![CDATA[
+											import com.kaltura.kmc.modules.content.utils.DropFolderTableStringUtil;
+										]]>
+									</mx:Script>
+								</mx:Label>
+
+							</mx:Component>
+						</mx:itemRenderer>
+					</mx:DataGridColumn>
+				</mx:columns>
+			</mx:DataGrid>
+			
+			<controls:Paging id="paging" width="100%" styleName="paging" rowsInPageChange="gotoPage()"
+							 totalCount="{dropFolderModel.filesTotalCount}"
+							 nextPage="gotoPage()" prvPage="gotoPage()" getPageNum="gotoPage()" visible="true"
+							 showRowsInPage="true" creationComplete="onPagerCreationComplete(event)"/>
+			
+			<mx:HBox id='bottomActionBox' width="100%" styleName="DataGridActions" height="30">
+				<mx:HBox height="100%" verticalAlign="middle" left="5" horizontalGap="0">
+					<mx:Label text="{resourceManager.getString('cms', 'selectionTitle')}"/>
+					<mx:LinkButton id="selectAll" label="{resourceManager.getString('cms', 'selectAllOption')}"
+								   click="selectAllTable()" buttonMode="true" paddingLeft="-2" paddingRight="0"/>
+					<mx:LinkButton id="deselectAll" label="{resourceManager.getString('cms', 'deselectAllOption')}"
+								   click="deSelectAllTable()" buttonMode="true" paddingLeft="-2" paddingRight="0"/>
+				</mx:HBox>
+				<mx:HBox horizontalAlign="center" width="100%">
+					<mx:Button id='deleteFilesBtn' label="{resourceManager.getString('cms','delete')}"
+							   useHandCursor="true" buttonMode="true" click="{deleteFiles()}"/>
+				</mx:HBox>
+			</mx:HBox>
+		</mx:VBox>
+	</mx:HDividedBox>
+</mx:VBox>
