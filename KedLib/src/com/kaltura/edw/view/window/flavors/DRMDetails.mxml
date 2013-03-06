@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<containers:HelpTitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" xmlns:containers="com.kaltura.containers.*"
+							layout="vertical" width="360" height="180" showCloseButton="true"
+							close="helptitlewindow1_closeHandler(event)" showHelpButton="false" >
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.vo.KalturaWidevineFlavorAsset;
+			import com.kaltura.vo.KalturaFlavorAssetWithParams;
+			import mx.managers.PopUpManager;
+			
+			
+			[Bindable]
+			private var _flavorAsset:KalturaWidevineFlavorAsset;
+			
+			public function set flavorAssetWithParams(awp:KalturaFlavorAssetWithParams):void {
+				title = resourceManager.getString('drilldown', 'drm_details', [awp.flavorParams.name]);
+				_flavorAsset = awp.flavorAsset as KalturaWidevineFlavorAsset;
+			}
+			
+			protected function helptitlewindow1_closeHandler(event:Event):void {
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function getFormattedDate(timestamp:int):String {
+				var result:String;
+				if (timestamp == int.MIN_VALUE) {
+					result = resourceManager.getString('drilldown', 'notAppStatus');
+				}
+				else {
+					result = formatter.format(new Date(timestamp*1000));
+				}
+				return result;
+			}
+			
+			
+		]]>
+	</mx:Script>
+	<mx:DateFormatter id="formatter" formatString="{resourceManager.getString('drilldown', 'drm_dist_time_format')}" />
+	<mx:Form>
+		<mx:FormItem label="{resourceManager.getString('drilldown','drm_dist_start')}">
+			<mx:Label text="{getFormattedDate(_flavorAsset.widevineDistributionStartDate)}" />
+		</mx:FormItem>
+		<mx:FormItem label="{resourceManager.getString('drilldown','drm_dist_end')}">
+			<mx:Label text="{getFormattedDate(_flavorAsset.widevineDistributionEndDate)}" />
+		</mx:FormItem>
+	</mx:Form>
+	
+	<mx:ControlBar>
+		<mx:Button label="{resourceManager.getString('drilldown', 'close')}" click="helptitlewindow1_closeHandler(event)" />
+	</mx:ControlBar>
+</containers:HelpTitleWindow>
