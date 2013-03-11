@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<panels:AdditionalFilter xmlns:mx="http://www.adobe.com/2006/mxml"
+						 xmlns:panels="com.kaltura.edw.components.fltr.panels.*"
+						 creationComplete="creationCompleteHandler(event)">
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.types.KalturaDropFolderFileStatus;
+			
+			import mx.events.FlexEvent;
+
+
+			override public function set filter(value:Object):void {
+				if (!value) {
+					all.selected = true;
+					transferring.selected = false;
+					pending.selected = false;
+					processing.selected = false;
+					parsed.selected = false;
+					waiting.selected = false;
+					noMatch.selected = false;
+					dnlding.selected = false;
+					handled.selected = false; 
+					errHandling.selected = false;
+					errDeleting.selected = false;
+					errDnld.selected = false;
+				}
+				else {
+					all.selected = false;
+					var dropStatusArr:Array = value.toString().split(',');
+					for each (var statusCode:int in dropStatusArr) {
+						switch (statusCode) {
+							case KalturaDropFolderFileStatus.UPLOADING:
+							case KalturaDropFolderFileStatus.DETECTED:
+								transferring.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.DOWNLOADING:
+								dnlding.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.PENDING:
+								pending.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.PROCESSING:
+								processing.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.PARSED:
+								parsed.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.WAITING:
+								waiting.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.NO_MATCH:
+								noMatch.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.ERROR_HANDLING:
+								errHandling.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.ERROR_DELETING:
+								errDeleting.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.ERROR_DOWNLOADING:
+								errDnld.selected = true;
+								break;
+							case KalturaDropFolderFileStatus.HANDLED:
+								handled.selected = true;
+								break;
+						}
+					}
+				}
+				if (!all.selected) {
+					var isAll:Boolean = true;
+					for (var i:int = 1; i<_buttons.length; i++) {
+						if (!_buttons[i].selected) {
+							isAll = false;
+							break;
+						}
+					}
+					if (isAll) {
+						filter = '';
+					}
+				}
+			}
+
+
+			override public function get filter():Object {
+				var dropFolderFileStatusArray:Array = [];
+				
+				if (all.selected) {
+					dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.UPLOADING, 
+						KalturaDropFolderFileStatus.DETECTED, KalturaDropFolderFileStatus.PENDING, 
+						KalturaDropFolderFileStatus.PROCESSING, KalturaDropFolderFileStatus.PARSED,
+						KalturaDropFolderFileStatus.DOWNLOADING, KalturaDropFolderFileStatus.WAITING, 
+						KalturaDropFolderFileStatus.NO_MATCH, KalturaDropFolderFileStatus.ERROR_HANDLING,
+						KalturaDropFolderFileStatus.ERROR_DELETING, KalturaDropFolderFileStatus.ERROR_DOWNLOADING,
+						KalturaDropFolderFileStatus.HANDLED);
+				} else {
+					if (transferring.selected) { // transferring
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.UPLOADING);
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.DETECTED);
+					}
+					if (pending.selected) { // pending
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.PENDING);
+					}
+					if (processing.selected) { // processing
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.PROCESSING);
+					}
+					if (parsed.selected) { // parsed
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.PARSED);
+					}
+					if (dnlding.selected) { // downloading
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.DOWNLOADING);
+					}
+					if (waiting.selected) { // pending
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.WAITING);
+					}
+					if (noMatch.selected) { // pending
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.NO_MATCH);
+					}
+					if (errHandling.selected) { // error handling
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.ERROR_HANDLING);
+					}
+					if (errDeleting.selected) { // error deleting
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.ERROR_DELETING);
+					}
+					if (errDnld.selected) { // error deleting
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.ERROR_DOWNLOADING);
+					}
+					if (handled.selected) { // handled
+						dropFolderFileStatusArray.push(KalturaDropFolderFileStatus.HANDLED);
+					}
+				}
+				return dropFolderFileStatusArray.join(',');
+			}
+
+
+
+			protected function creationCompleteHandler(event:FlexEvent):void {
+				_buttons = [all, transferring, pending, processing, parsed, waiting, noMatch,
+					dnlding, handled, errHandling, errDeleting, errDnld];
+			}
+		]]>
+	</mx:Script>
+	<mx:CheckBox id="all" width="100%" label="{resourceManager.getString('dropfolders', 'allStatuses')}" 
+				 styleName="mainFilterGroupButton" click="{onDynamicTitleClicked(event)}" selected="true" />
+	<mx:CheckBox id="parsed" width="100%" label="{resourceManager.getString('dropfolders', 'parsedBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="transferring" width="100%" label="{resourceManager.getString('dropfolders', 'transferringBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="pending" width="100%" label="{resourceManager.getString('dropfolders', 'pendingBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="waiting" width="100%" label="{resourceManager.getString('dropfolders', 'waitingBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="noMatch" width="100%" label="{resourceManager.getString('dropfolders', 'noMatchBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="processing" width="100%" label="{resourceManager.getString('dropfolders', 'processingBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="dnlding" width="100%" label="{resourceManager.getString('dropfolders', 'downloadingBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="handled" width="100%" label="{resourceManager.getString('dropfolders', 'handledBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="errHandling" width="100%" label="{resourceManager.getString('dropfolders', 'errHandlingBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="errDnld" width="100%" label="{resourceManager.getString('dropfolders', 'errDnldBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+	<mx:CheckBox id="errDeleting" width="100%" label="{resourceManager.getString('dropfolders', 'errDeletingBtn')}"
+				 styleName="innerFilterGroupButton" click="{onDynamicMemberClicked(event)}"/>
+</panels:AdditionalFilter>
