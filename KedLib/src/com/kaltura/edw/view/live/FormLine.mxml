@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml" width="100%">
+	<mx:Script>
+		<![CDATA[
+			
+			public function set prefixWidth(w:int):void {
+				prefix.width = w;
+			}
+			
+			public function get prefixWidth():int {
+				return prefix.width;
+			}
+			
+			[Bindable]
+			public var value:String;
+		]]>
+	</mx:Script>
+	<mx:Label id="prefix" text="{label}" styleName="drillDownLabel" selectable="true" truncateToFit="false"/>
+	<mx:Label text="{value}" width="100%" styleName="drillDownSubLabel" selectable="true" truncateToFit="false"/>
+</mx:HBox>
