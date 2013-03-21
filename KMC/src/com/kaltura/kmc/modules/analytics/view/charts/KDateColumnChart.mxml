@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:ColumnChart xmlns:mx="http://www.adobe.com/2006/mxml" showDataTips="true" dataTipFunction="getDataTip" height="200">
+	<mx:Script>
+		<![CDATA[
+			import com.kaltura.kmc.modules.analytics.utils.FormattingUtil;
+
+			import mx.collections.ArrayCollection;
+			import mx.formatters.DateFormatter;
+
+			
+			private const strokeColors:Array = [0x0099cb, 0x9bbb2f, 0xe6171a, 0x0ec34e, 0xe9a219, 0x026a8a,0xdbd103];
+
+			[Bindable]
+			public var oneDayDate:Date;
+			
+			
+			/**
+			 * function used to format item data (y-axis value). <br/>
+			 * if not set, toFixed(2) is used.
+			 * */
+			public var dataFormatFunc:Function = defaultDataFormat;
+			
+			private function defaultDataFormat(val:*):String {
+				return Number(val).toFixed(2);
+			}
+
+
+			private function getDataTip(data:Object):String {
+				// get x-axis value
+				var dateString:String = !oneDayDate ? FormattingUtil.formatMonthString(data.item.x) : parseNormalDate(data.item.x as Number);
+				var tipString:String = dateString + '\n';
+				if ((data.element as ColumnSeries).yField != "y") {
+					tipString += (data.element as ColumnSeries).yField + '\n';
+				}
+				tipString += dataFormatFunc(data.item[(data.element as ColumnSeries).yField]);
+				return tipString;
+			}
+
+
+			override public function set dataProvider(value:Object):void {
+				if (oneDayDate && !value) {
+					value = new ArrayCollection();
+					(value as ArrayCollection).addItem({x: oneDayDate.time, y: 0});
+				}
+				super.dataProvider = value;
+
+				colTimeAxis.dataProvider = value;
+			}
+
+
+			private function categoryLabelFunc(categoryValue:Object, previousCategoryValue:Object, axis:CategoryAxis, categoryItem:Object):String {
+				if (!oneDayDate) {
+					var monthString:String = categoryValue as String;
+					return FormattingUtil.formatMonthString(monthString);
+				}
+				else {
+					return parseNormalDate(categoryValue as Number);
+				}
+			}
+
+
+			private function parseNormalDate(value:Number):String {
+				var date:Date = new Date(value);
+				var dateFormatter:DateFormatter = new DateFormatter();
+				dateFormatter.formatString = resourceManager.getString("analytics", "dailyDateMask");
+				return dateFormatter.format(date);
+			}
+			
+			
+			/**
+			 * sets series with LineSeries for each given value.
+			 * @param fields list of strings to use as yField values 
+			 * */
+			public function set yFields(fields:Array):void {
+				var line:ColumnSeries;
+				var stroke:SolidColor;
+				var tmp:Array = [];
+				var i:int = 0;
+				for each (var field:String in fields) {
+					line = new ColumnSeries();
+					line.xField = 'x';
+					line.yField = field;
+					line.displayName = resourceManager.getString('analytics', field);
+					if (!line.displayName) line.displayName = field;
+					stroke = new SolidColor();
+					stroke.color = strokeColors[(i++%strokeColors.length)]; // keep first line in original color
+					line.setStyle('fills', [stroke]);
+					line.setStyle('showDataEffect', rearrangeData);
+					tmp.push(line);
+				}
+				this.series = tmp;
+			}
+			
+			
+		]]>
+	</mx:Script>
+	<mx:SeriesInterpolate id="rearrangeData" duration="1000" minimumElementDuration="200" elementOffset="0"/>
+	
+	<mx:horizontalAxis>
+		<mx:CategoryAxis id='colTimeAxis' categoryField="x" labelFunction="categoryLabelFunc"
+						 title="{oneDayDate ? resourceManager.getString('analytics', 'date') : resourceManager.getString('analytics', 'month')}"/>
+	</mx:horizontalAxis>
+	<mx:series>
+		<mx:ColumnSeries displayName="Usage" yField="y" xField="x">
+			<mx:fills>
+				<mx:SolidColor color="#9ab40c"/>
+			</mx:fills>
+		</mx:ColumnSeries>
+	</mx:series>
+</mx:ColumnChart>
